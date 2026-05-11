@@ -11,6 +11,7 @@ const EnvSchema = z
     GITHUB_CLIENT_ID: z.string().min(1).optional(),
     GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
     SENTRY_DSN: z.string().url().optional(),
+    WEB_BUILD_DIR: z.string().optional(),
   })
   .superRefine((env, ctx) => {
     const idSet = Boolean(env.GITHUB_CLIENT_ID);

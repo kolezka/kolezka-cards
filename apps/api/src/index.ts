@@ -5,6 +5,7 @@ import { logger } from './logger';
 import { csrfGuard } from './middleware/csrf';
 import { renderAbuseLimit } from './middleware/rate-limit';
 import { securityHeaders } from './middleware/security-headers';
+import { staticServe } from './middleware/static-serve';
 import { captureError, initSentry } from './observability/sentry';
 import { createAnalyticsRoute } from './routes/analytics';
 import { createAuthRoute } from './routes/auth';
@@ -53,6 +54,17 @@ app.route('/', createMeRoute(db, env));
 app.route('/', createCardsRoute(db, env));
 app.route('/', createAnalyticsRoute(db, env));
 app.route('/', createDevAnalyticsRoute(db));
+
+if (env.WEB_BUILD_DIR) {
+  app.use(
+    '*',
+    staticServe({
+      root: env.WEB_BUILD_DIR,
+      reservedPrefixes: ['/api', '/auth', '/c', '/healthz', '/metrics'],
+      fallback: 'index.html',
+    }),
+  );
+}
 
 app.notFound((c) => c.json({ error: 'not_found' }, 404));
 app.onError((err, c) => {
