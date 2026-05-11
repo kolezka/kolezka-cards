@@ -122,6 +122,33 @@ Custom CSRF guard on `/api/*` mutations: `Origin` must match `BASE_URL` (when pr
 - No cross-day identifiers — daily salt rotation breaks the link.
 - No cookies or persistent identifiers on the embedded SVG endpoint.
 
+## Local Docker (prod-parity smoke test)
+
+Build the production image and run it on `:3000` with a SQLite volume — same shape Coolify deploys:
+
+```sh
+cp .env.example .env
+# Fill APP_SECRET (`openssl rand -hex 32`), set BASE_URL=http://localhost:3000.
+
+docker compose up -d --build
+curl -i http://localhost:3000/healthz
+docker compose logs -f app
+docker compose down -v   # tears down + drops the data volume
+```
+
+The container runs `bun packages/db/src/migrate.ts && bun apps/api/src/index.ts` on boot — schema is brought up to date every start.
+
+### Containerized dev (optional)
+
+If you want every dev dependency inside a container, use the dev compose. Bind-mounts the source for hot reload, isolates `node_modules` in a named volume so Alpine installs don't clobber host installs, runs migrate + seed automatically:
+
+```sh
+docker compose -f docker-compose.dev.yml up
+open http://localhost:5173
+```
+
+This is the slower path. Spec-preferred dev is `bun run dev` on the host.
+
 ## Coolify deploy
 
 1. Push to `kolezka/kolezka-cards`.

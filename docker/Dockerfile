@@ -5,6 +5,10 @@ FROM oven/bun:1.3.10-alpine AS base
 WORKDIR /app
 
 # -- deps -----------------------------------------------------------
+# Install all workspace deps from manifests only so this layer caches
+# across source-only changes. Bun isolates packages in node_modules/.bun
+# and symlinks them into each workspace's node_modules/ — both halves
+# need to land in the runtime image.
 FROM base AS deps
 COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/package.json
@@ -20,28 +24,24 @@ COPY packages packages
 COPY apps/web apps/web
 RUN cd apps/web && bun x svelte-kit sync && bun run build
 
-# -- runtime image --------------------------------------------------
+# -- runtime --------------------------------------------------------
 FROM base AS runtime
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV DATABASE_PATH=/data/app.db
+ENV WEB_BUILD_DIR=/app/apps/web/build
 
-# copy production node_modules from deps (Bun workspaces hoist into root)
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/package.json ./package.json
-COPY --from=deps /app/bun.lock ./bun.lock
-
-# copy source needed at runtime (Bun runs TS directly)
+# Bring the full deps-stage tree (manifests + node_modules + workspace
+# symlinks under apps/*/node_modules and packages/*/node_modules). Then
+# overlay the real source files on top — Docker's COPY merges into
+# existing directories, so the workspace node_modules survive.
+COPY --from=deps /app /app
 COPY tsconfig.base.json ./
 COPY packages packages
 COPY apps/api apps/api
 COPY --from=web-build /app/apps/web/build ./apps/web/build
 
-# DB volume is mounted by the platform (Coolify). Schema bootstrap runs
-# on first boot via the migrate script.
 VOLUME ["/data"]
-
-ENV WEB_BUILD_DIR=/app/apps/web/build
 EXPOSE 3000
 
 CMD ["sh", "-c", "cd /app && bun packages/db/src/migrate.ts && bun apps/api/src/index.ts"]
