@@ -4,8 +4,10 @@ import { env } from './env';
 import { logger } from './logger';
 import { csrfGuard } from './middleware/csrf';
 import { renderAbuseLimit } from './middleware/rate-limit';
+import { securityHeaders } from './middleware/security-headers';
 import { createAnalyticsRoute } from './routes/analytics';
 import { createAuthRoute } from './routes/auth';
+import { createCardsRoute } from './routes/cards';
 import { createDevAnalyticsRoute } from './routes/dev-analytics';
 import { healthz } from './routes/healthz';
 import { createMeRoute } from './routes/me';
@@ -24,6 +26,7 @@ app.use('*', async (c, next) => {
   );
 });
 
+app.use('*', securityHeaders);
 app.use('/c/*', renderAbuseLimit);
 
 app.use('/api/*', async (c, next) => {
@@ -42,6 +45,7 @@ app.route('/', healthz);
 app.route('/', createRenderCardRoute(db));
 app.route('/', createAuthRoute(db, env));
 app.route('/', createMeRoute(db, env));
+app.route('/', createCardsRoute(db, env));
 app.route('/', createAnalyticsRoute(db, env));
 app.route('/', createDevAnalyticsRoute(db));
 
