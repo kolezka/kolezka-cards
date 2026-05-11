@@ -1,9 +1,11 @@
 import { type DB, schema } from '@kc/db';
 import { and, eq, gte, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { logger } from '../logger';
 
 const DEDUP_WINDOW_MS = 12 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
+export const IMPRESSIONS_HOUR_FLAG_THRESHOLD = 10_000;
 
 export interface VisitInput {
   cardId: string;
@@ -72,6 +74,23 @@ export function trackVisit(db: DB, input: VisitInput): VisitResult {
       },
     })
     .run();
+
+  const currentBucket = db
+    .select({ total: schema.impressionBuckets.totalImpressions })
+    .from(schema.impressionBuckets)
+    .where(
+      and(
+        eq(schema.impressionBuckets.cardId, input.cardId),
+        eq(schema.impressionBuckets.hourBucket, hourBucket),
+      ),
+    )
+    .get();
+  if (currentBucket && currentBucket.total === IMPRESSIONS_HOUR_FLAG_THRESHOLD) {
+    logger.warn(
+      { cardId: input.cardId, hourBucket, threshold: IMPRESSIONS_HOUR_FLAG_THRESHOLD },
+      'impressions_threshold_exceeded',
+    );
+  }
 
   const totals = db
     .select({

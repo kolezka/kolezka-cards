@@ -3,6 +3,8 @@ import { Hono } from 'hono';
 import { env } from './env';
 import { logger } from './logger';
 import { csrfGuard } from './middleware/csrf';
+import { renderAbuseLimit } from './middleware/rate-limit';
+import { createAnalyticsRoute } from './routes/analytics';
 import { createAuthRoute } from './routes/auth';
 import { createDevAnalyticsRoute } from './routes/dev-analytics';
 import { healthz } from './routes/healthz';
@@ -22,6 +24,8 @@ app.use('*', async (c, next) => {
   );
 });
 
+app.use('/c/*', renderAbuseLimit);
+
 app.use('/api/*', async (c, next) => {
   const origin = new URL(env.BASE_URL).origin;
   c.header('Access-Control-Allow-Origin', origin);
@@ -38,6 +42,7 @@ app.route('/', healthz);
 app.route('/', createRenderCardRoute(db));
 app.route('/', createAuthRoute(db, env));
 app.route('/', createMeRoute(db, env));
+app.route('/', createAnalyticsRoute(db, env));
 app.route('/', createDevAnalyticsRoute(db));
 
 app.notFound((c) => c.json({ error: 'not_found' }, 404));
