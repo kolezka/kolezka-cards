@@ -1,0 +1,15 @@
+version: '3.9'
+
+# Local-dev compose. The app itself runs via `bun run dev` on the host;
+# this file is here as a placeholder so Coolify deployment + local volume
+# layout match. Phase 8 will add the actual app service.
+
+services:
+  data:
+    image: alpine:3.20
+    command: ['sh', '-c', 'echo "sqlite volume placeholder" && tail -f /dev/null']
+    volumes:
+      - app-data:/data
+
+volumes:
+  app-data:

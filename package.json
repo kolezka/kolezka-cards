@@ -1,0 +1,23 @@
+{
+  "name": "kolezka-cards",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "bun run scripts/dev.ts",
+    "typecheck": "bun run --filter '*' typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "bun test",
+    "db:generate": "bun --filter @kc/db db:generate",
+    "db:migrate": "bun --filter @kc/db db:migrate",
+    "db:studio": "bun --filter @kc/db db:studio",
+    "db:seed": "bun --filter @kc/db db:seed"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/bun": "latest",
+    "typescript": "^5.6.3"
+  }
+}

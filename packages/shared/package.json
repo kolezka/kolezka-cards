@@ -1,0 +1,26 @@
+{
+  "name": "@kc/shared",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./env": "./src/env.ts",
+    "./fingerprint": "./src/fingerprint.ts",
+    "./escape-xml": "./src/escape-xml.ts",
+    "./themes": "./src/themes/index.ts",
+    "./svg/visit-counter": "./src/svg/visit-counter.ts",
+    "./zod/card-config": "./src/zod/card-config.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

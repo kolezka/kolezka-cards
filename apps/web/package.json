@@ -1,0 +1,21 @@
+{
+  "name": "@kc/web",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite dev --port 5173 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json --threshold error"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.6",
+    "@sveltejs/kit": "^2.8.0",
+    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "svelte": "^5.1.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}
