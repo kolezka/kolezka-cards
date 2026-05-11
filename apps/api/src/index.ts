@@ -2,8 +2,11 @@ import { getClient } from '@kc/db';
 import { Hono } from 'hono';
 import { env } from './env';
 import { logger } from './logger';
+import { csrfGuard } from './middleware/csrf';
+import { createAuthRoute } from './routes/auth';
 import { createDevAnalyticsRoute } from './routes/dev-analytics';
 import { healthz } from './routes/healthz';
+import { createMeRoute } from './routes/me';
 import { createRenderCardRoute } from './routes/render-card';
 
 const { db } = getClient(env.DATABASE_PATH);
@@ -29,8 +32,12 @@ app.use('/api/*', async (c, next) => {
   await next();
 });
 
+app.use('/api/*', csrfGuard(env));
+
 app.route('/', healthz);
 app.route('/', createRenderCardRoute(db));
+app.route('/', createAuthRoute(db, env));
+app.route('/', createMeRoute(db, env));
 app.route('/', createDevAnalyticsRoute(db));
 
 app.notFound((c) => c.json({ error: 'not_found' }, 404));

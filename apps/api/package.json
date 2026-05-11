@@ -12,6 +12,7 @@
   "dependencies": {
     "@kc/db": "workspace:*",
     "@kc/shared": "workspace:*",
+    "arctic": "^2.3.4",
     "drizzle-orm": "^0.36.4",
     "hono": "^4.6.12",
     "nanoid": "^5.0.9",
