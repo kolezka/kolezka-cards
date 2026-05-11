@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from 'hono';
 import { logger } from '../logger';
+import { bumpCounter } from '../services/metrics';
 import { createTokenBucket } from '../services/rate-limiter';
 
 export const ABUSE_CAPACITY = 600;
@@ -26,6 +27,7 @@ export const renderAbuseLimit: MiddlewareHandler = async (c, next) => {
   const result = abuseBucket.tryTake(ip);
   if (!result.ok) {
     logger.warn({ ip, path: c.req.path }, 'rate limit hit');
+    bumpCounter('rate_limit.rejected');
     c.header('Retry-After', String(Math.ceil(result.retryAfterMs / 1000)));
     return c.json({ error: 'rate_limited' }, 429);
   }

@@ -24,6 +24,7 @@
   <a class="brand" href="/">kolezka-cards</a>
   <nav>
     <a href="/methodology">methodology</a>
+    <a href="/privacy">privacy</a>
     {#if me}
       <a href="/app">cards</a>
       <span class="login">@{me.login}</span>

@@ -12,6 +12,7 @@ import {
 } from '../auth/cookies';
 import { fetchGitHubUser, githubProvider } from '../auth/github';
 import { logger } from '../logger';
+import { bumpCounter } from '../services/metrics';
 import { consumeOAuthState, createOAuthState } from '../services/oauth-state';
 import { createSession, deleteSession } from '../services/sessions';
 
@@ -93,6 +94,7 @@ export function createAuthRoute(db: DB, env: Env): Hono {
     });
     setSessionCookie(c, env, sessionId, expiresAt);
     logger.info({ event: 'oauth.success', userId, githubId: ghUser.id }, 'oauth success');
+    bumpCounter('oauth.success');
 
     const redirectTo = stored.redirectTo?.startsWith('/') ? stored.redirectTo : '/';
     return c.redirect(redirectTo, 302);

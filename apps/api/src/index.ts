@@ -5,15 +5,19 @@ import { logger } from './logger';
 import { csrfGuard } from './middleware/csrf';
 import { renderAbuseLimit } from './middleware/rate-limit';
 import { securityHeaders } from './middleware/security-headers';
+import { captureError, initSentry } from './observability/sentry';
 import { createAnalyticsRoute } from './routes/analytics';
 import { createAuthRoute } from './routes/auth';
 import { createCardsRoute } from './routes/cards';
 import { createDevAnalyticsRoute } from './routes/dev-analytics';
 import { healthz } from './routes/healthz';
 import { createMeRoute } from './routes/me';
+import { metrics as metricsRoute } from './routes/metrics';
 import { createRenderCardRoute } from './routes/render-card';
+import { bumpCounter } from './services/metrics';
 
 const { db } = getClient(env.DATABASE_PATH);
+await initSentry(env);
 
 const app = new Hono();
 
@@ -42,6 +46,7 @@ app.use('/api/*', async (c, next) => {
 app.use('/api/*', csrfGuard(env));
 
 app.route('/', healthz);
+app.route('/', metricsRoute);
 app.route('/', createRenderCardRoute(db));
 app.route('/', createAuthRoute(db, env));
 app.route('/', createMeRoute(db, env));
@@ -52,6 +57,8 @@ app.route('/', createDevAnalyticsRoute(db));
 app.notFound((c) => c.json({ error: 'not_found' }, 404));
 app.onError((err, c) => {
   logger.error({ err }, 'unhandled');
+  bumpCounter('errors.unhandled');
+  captureError(err);
   return c.json({ error: 'internal' }, 500);
 });
 

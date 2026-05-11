@@ -20,6 +20,7 @@ import {
   type GitHubLanguages,
   createGitHubClient,
 } from '../services/github-client';
+import { bumpCounter } from '../services/metrics';
 import { trackVisit } from '../services/visit-tracker';
 
 function extractReferrerHost(referer: string | undefined): string | null {
@@ -199,6 +200,9 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
       },
       'render',
     );
+    bumpCounter('render.total');
+    bumpCounter('render.by_type', 1, { type: config.type });
+    if (visit.wasUnique) bumpCounter('render.unique');
 
     c.header('Content-Type', 'image/svg+xml; charset=utf-8');
     return c.body(svg);

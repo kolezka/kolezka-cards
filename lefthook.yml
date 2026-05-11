@@ -1,0 +1,22 @@
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: "*.{ts,tsx,js,jsx,json}"
+      run: bun x biome check {staged_files}
+    typecheck-shared:
+      glob: "packages/shared/**/*.ts"
+      run: bun x tsc -p packages/shared --noEmit
+    typecheck-db:
+      glob: "packages/db/**/*.ts"
+      run: bun x tsc -p packages/db --noEmit
+    typecheck-api:
+      glob: "apps/api/**/*.ts"
+      run: bun x tsc -p apps/api --noEmit
+    svelte-check:
+      glob: "apps/web/**/*.{svelte,ts}"
+      root: apps/web
+      run: bun x svelte-check --tsconfig ./tsconfig.json --threshold error
+    tests:
+      glob: "**/*.{ts,tsx}"
+      run: bun test
