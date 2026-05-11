@@ -69,6 +69,41 @@ export const impressionBuckets = sqliteTable(
   }),
 );
 
+export const sessions = sqliteTable(
+  'sessions',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    userAgentHash: text('user_agent_hash'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => ({
+    userIdx: index('sessions_user_idx').on(t.userId),
+    expiresIdx: index('sessions_expires_idx').on(t.expiresAt),
+  }),
+);
+
+export const oauthState = sqliteTable(
+  'oauth_state',
+  {
+    state: text('state').primaryKey(),
+    codeVerifier: text('code_verifier'),
+    redirectTo: text('redirect_to'),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => ({
+    expiresIdx: index('oauth_state_expires_idx').on(t.expiresAt),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Card = typeof cards.$inferSelect;
@@ -76,3 +111,7 @@ export type NewCard = typeof cards.$inferInsert;
 export type Visit = typeof visits.$inferSelect;
 export type NewVisit = typeof visits.$inferInsert;
 export type ImpressionBucket = typeof impressionBuckets.$inferSelect;
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
+export type OAuthState = typeof oauthState.$inferSelect;
+export type NewOAuthState = typeof oauthState.$inferInsert;

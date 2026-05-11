@@ -8,6 +8,13 @@
       "when": 1778501971157,
       "tag": "0000_pretty_meteorite",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1778504905379,
+      "tag": "0001_equal_slayback",
+      "breakpoints": true
     }
   ]
 }
