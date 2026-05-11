@@ -61,3 +61,6 @@ export const CardConfig = z.discriminatedUnion('type', [
 
 export type CardConfig = z.infer<typeof CardConfig>;
 export type VisitCounterConfig = z.infer<typeof VisitCounterConfig>;
+export type ProfileStatsConfig = z.infer<typeof ProfileStatsConfig>;
+export type RepoStatsConfig = z.infer<typeof RepoStatsConfig>;
+export type StreakConfig = z.infer<typeof StreakConfig>;

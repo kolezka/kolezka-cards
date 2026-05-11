@@ -6,64 +6,85 @@ import { cards, users } from './schema';
 const databasePath = process.env.DATABASE_PATH ?? './data/app.db';
 const { db, sqlite } = createClient(databasePath);
 
-const SEED_USER_GITHUB_ID = 999_001;
-const SEED_USER_LOGIN = 'testuser';
-const SEED_CARD_SLUG = 'counter';
-
-const existing = db
-  .select({ id: users.id })
-  .from(users)
-  .where(eq(users.githubId, SEED_USER_GITHUB_ID))
-  .all();
-
-let userId: string;
-if (existing.length > 0) {
-  userId = existing[0]!.id;
-  console.log(`Seed user already exists: ${SEED_USER_LOGIN} (${userId})`);
-} else {
-  userId = nanoid(16);
-  db.insert(users)
-    .values({
-      id: userId,
-      githubId: SEED_USER_GITHUB_ID,
-      login: SEED_USER_LOGIN,
-      avatarUrl: null,
-    })
-    .run();
-  console.log(`Created seed user: ${SEED_USER_LOGIN} (${userId})`);
+function upsertUser(githubId: number, login: string): string {
+  const existing = db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.githubId, githubId))
+    .all();
+  if (existing.length > 0) {
+    console.log(`Seed user already exists: ${login} (${existing[0]!.id})`);
+    return existing[0]!.id;
+  }
+  const id = nanoid(16);
+  db.insert(users).values({ id, githubId, login, avatarUrl: null }).run();
+  console.log(`Created seed user: ${login} (${id})`);
+  return id;
 }
 
-const existingCard = db
-  .select({ id: cards.id })
-  .from(cards)
-  .where(and(eq(cards.userId, userId), eq(cards.slug, SEED_CARD_SLUG)))
-  .all();
-
-let cardId: string;
-if (existingCard.length > 0) {
-  cardId = existingCard[0]!.id;
-  console.log(`Seed card already exists: ${SEED_USER_LOGIN}/${SEED_CARD_SLUG} (${cardId})`);
-} else {
-  cardId = nanoid(12);
-  db.insert(cards)
-    .values({
-      id: cardId,
-      userId,
-      slug: SEED_CARD_SLUG,
-      type: 'visit-counter',
-      theme: 'github_dark',
-      configJson: {
-        type: 'visit-counter',
-        theme: 'github_dark',
-        title: 'Visits to this card',
-        show: { total: true, unique: true },
-      },
-    })
-    .run();
-  console.log(`Created seed card: ${SEED_USER_LOGIN}/${SEED_CARD_SLUG} (${cardId})`);
+function upsertCard(
+  userId: string,
+  slug: string,
+  type: string,
+  theme: string,
+  configJson: Record<string, unknown>,
+  ownerLogin: string,
+): string {
+  const existingCard = db
+    .select({ id: cards.id })
+    .from(cards)
+    .where(and(eq(cards.userId, userId), eq(cards.slug, slug)))
+    .all();
+  if (existingCard.length > 0) {
+    console.log(`Seed card already exists: ${ownerLogin}/${slug} (${existingCard[0]!.id})`);
+    return existingCard[0]!.id;
+  }
+  const id = nanoid(12);
+  db.insert(cards).values({ id, userId, slug, type, theme, configJson }).run();
+  console.log(`Created seed card: ${ownerLogin}/${slug} (${id})`);
+  return id;
 }
+
+// Dev user (no real GitHub identity — used for the visit-counter demo)
+const testUserId = upsertUser(999_001, 'testuser');
+upsertCard(
+  testUserId,
+  'counter',
+  'visit-counter',
+  'github_dark',
+  {
+    type: 'visit-counter',
+    theme: 'github_dark',
+    title: 'Visits to this card',
+    show: { total: true, unique: true },
+  },
+  'testuser',
+);
+
+// Real GitHub user — profile-stats hits the public GitHub API by `users.login`.
+const octocatId = upsertUser(583_231, 'octocat');
+upsertCard(
+  octocatId,
+  'profile',
+  'profile-stats',
+  'github_dark',
+  { type: 'profile-stats', theme: 'github_dark', show: { languages: true, commitGraph: false } },
+  'octocat',
+);
+upsertCard(
+  octocatId,
+  'hello',
+  'repo-stats',
+  'github_dark',
+  { type: 'repo-stats', theme: 'github_dark', repo: 'octocat/Hello-World' },
+  'octocat',
+);
 
 sqlite.close();
-console.log(
-  `\nTry it:\n  curl -i 'http://localhost:3001/c/${SEED_USER_LOGIN}/${SEED_CARD_SLUG}.svg'\n  open  http://localhost:5173/dev`,
-);
+console.log(`
+Try the seeded cards:
+  curl -sS 'http://localhost:3001/c/testuser/counter.svg' | head -1
+  curl -sS 'http://localhost:3001/c/octocat/profile.svg' | head -1
+  curl -sS 'http://localhost:3001/c/octocat/hello.svg' | head -1
+  open  http://localhost:5173/dev
+`);

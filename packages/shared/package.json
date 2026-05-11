@@ -12,7 +12,10 @@
     "./escape-xml": "./src/escape-xml.ts",
     "./themes": "./src/themes/index.ts",
     "./svg/visit-counter": "./src/svg/visit-counter.ts",
-    "./zod/card-config": "./src/zod/card-config.ts"
+    "./svg/profile-stats": "./src/svg/profile-stats.ts",
+    "./svg/repo-stats": "./src/svg/repo-stats.ts",
+    "./zod/card-config": "./src/zod/card-config.ts",
+    "./zod/query-overrides": "./src/zod/query-overrides.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
