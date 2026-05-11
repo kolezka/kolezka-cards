@@ -5,6 +5,7 @@
   import { api, type AnalyticsResult, type CardSummary } from '$lib/api';
   import { THEME_NAMES } from '$lib/theme';
   import Sparkline from '$lib/Sparkline.svelte';
+  import Heatmap from '$lib/Heatmap.svelte';
 
   let cardId = $derived(page.params.id ?? '');
   let card = $state<CardSummary | null>(null);
@@ -201,6 +202,9 @@
       </div>
 
       <Sparkline series={analytics.series} />
+
+      <h3 class="sub">Visits by hour of week (UTC)</h3>
+      <Heatmap grid={analytics.heatmap} />
 
       <div class="breakdowns">
         <div>

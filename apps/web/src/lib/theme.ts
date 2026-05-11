@@ -9,7 +9,7 @@ export const THEME_NAMES = [
 
 export type ThemeName = (typeof THEME_NAMES)[number];
 
-export const CARD_TYPES = ['visit-counter', 'profile-stats', 'repo-stats'] as const;
+export const CARD_TYPES = ['visit-counter', 'profile-stats', 'repo-stats', 'streak'] as const;
 export type CardType = (typeof CARD_TYPES)[number];
 
 export function defaultConfigFor(type: CardType, theme: ThemeName = 'github_dark') {
@@ -20,5 +20,7 @@ export function defaultConfigFor(type: CardType, theme: ThemeName = 'github_dark
       return { type, theme, show: { languages: true, commitGraph: false } };
     case 'repo-stats':
       return { type, theme, repo: 'octocat/Hello-World' };
+    case 'streak':
+      return { type, theme };
   }
 }

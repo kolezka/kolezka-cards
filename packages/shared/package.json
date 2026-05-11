@@ -14,6 +14,7 @@
     "./svg/visit-counter": "./src/svg/visit-counter.ts",
     "./svg/profile-stats": "./src/svg/profile-stats.ts",
     "./svg/repo-stats": "./src/svg/repo-stats.ts",
+    "./svg/streak": "./src/svg/streak.ts",
     "./zod/card-config": "./src/zod/card-config.ts",
     "./zod/query-overrides": "./src/zod/query-overrides.ts"
   },

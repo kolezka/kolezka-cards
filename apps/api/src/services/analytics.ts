@@ -43,6 +43,11 @@ export interface AnalyticsResult {
   referrers: Array<{ host: string | null; count: number }>;
   countries: Array<{ country: string | null; count: number }>;
   userAgents: Array<{ family: string | null; count: number }>;
+  /**
+   * Hour-of-week × hour-of-day heatmap. 7 rows (UTC Sun=0..Sat=6) × 24 cols.
+   * Always returns a fully-populated 7x24 grid; zero-filled when no visits.
+   */
+  heatmap: number[][];
 }
 
 export interface QueryAnalyticsInput {
@@ -124,6 +129,27 @@ export function queryAnalytics(db: DB, input: QueryAnalyticsInput): AnalyticsRes
     .map((r) => ({ family: r.family, count: Number(r.count) }))
     .sort((a, b) => b.count - a.count);
 
+  const dowExpr = sql<number>`CAST(strftime('%w', ${schema.visits.createdAt} / 1000, 'unixepoch') AS INTEGER)`;
+  const hourExpr = sql<number>`CAST(strftime('%H', ${schema.visits.createdAt} / 1000, 'unixepoch') AS INTEGER)`;
+  const heatmapRows = db
+    .select({
+      dow: dowExpr,
+      hour: hourExpr,
+      count: sql<number>`count(*)`,
+    })
+    .from(schema.visits)
+    .where(visitWhere)
+    .groupBy(dowExpr, hourExpr)
+    .all();
+  const heatmap: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+  for (const r of heatmapRows) {
+    const d = Number(r.dow);
+    const h = Number(r.hour);
+    if (d >= 0 && d < 7 && h >= 0 && h < 24) {
+      heatmap[d]![h] = Number(r.count);
+    }
+  }
+
   return {
     range,
     totals,
@@ -137,5 +163,6 @@ export function queryAnalytics(db: DB, input: QueryAnalyticsInput): AnalyticsRes
     referrers,
     countries,
     userAgents,
+    heatmap,
   };
 }

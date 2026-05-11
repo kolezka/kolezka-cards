@@ -2,11 +2,13 @@ import { type DB, schema } from '@kc/db';
 import { computeFingerprint } from '@kc/shared/fingerprint';
 import { renderProfileStats } from '@kc/shared/svg/profile-stats';
 import { renderRepoStats } from '@kc/shared/svg/repo-stats';
+import { renderStreak } from '@kc/shared/svg/streak';
 import { renderVisitCounter } from '@kc/shared/svg/visit-counter';
 import {
   CardConfig,
   ProfileStatsConfig,
   RepoStatsConfig,
+  StreakConfig,
   VisitCounterConfig,
 } from '@kc/shared/zod/card-config';
 import { hiddenSections, parseQueryOverrides } from '@kc/shared/zod/query-overrides';
@@ -20,6 +22,7 @@ import {
   type GitHubLanguages,
   createGitHubClient,
 } from '../services/github-client';
+import { computeStreakStats, fetchContributions } from '../services/github-contributions';
 import { bumpCounter } from '../services/metrics';
 import { trackVisit } from '../services/visit-tracker';
 
@@ -181,8 +184,18 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
           });
           break;
         }
-        case 'streak':
-          return c.text('Streak card not yet implemented', 501);
+        case 'streak': {
+          const merged = applyQueryOverrides(config, query);
+          const parsed = StreakConfig.parse(merged);
+          const days = await fetchContributions(row.ownerLogin);
+          if (!days) return c.text('GitHub user not found', 404);
+          const stats = computeStreakStats(days);
+          svg = renderStreak(parsed, {
+            login: row.ownerLogin,
+            ...stats,
+          });
+          break;
+        }
       }
     } catch (err) {
       logger.warn({ err, cardId: card.id }, 'render fallback (github fetch failed)');

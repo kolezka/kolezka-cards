@@ -79,6 +79,14 @@ upsertCard(
   { type: 'repo-stats', theme: 'github_dark', repo: 'octocat/Hello-World' },
   'octocat',
 );
+upsertCard(
+  octocatId,
+  'streak',
+  'streak',
+  'github_dark',
+  { type: 'streak', theme: 'github_dark' },
+  'octocat',
+);
 
 sqlite.close();
 console.log(`

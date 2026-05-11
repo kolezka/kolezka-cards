@@ -145,4 +145,12 @@ describe('queryAnalytics', () => {
     const r = queryAnalytics(db, { cardId, range: '24h', now: NOW });
     expect(r.referrers.find((x) => x.host === null)).toBeUndefined();
   });
+
+  it('returns a 7x24 heatmap with the visit buckets populated', () => {
+    const r = queryAnalytics(db, { cardId, range: 'all', now: NOW });
+    expect(r.heatmap.length).toBe(7);
+    for (const row of r.heatmap) expect(row.length).toBe(24);
+    const totalInHeatmap = r.heatmap.flat().reduce((a, b) => a + b, 0);
+    expect(totalInHeatmap).toBeGreaterThan(0);
+  });
 });

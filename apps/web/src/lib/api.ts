@@ -24,6 +24,7 @@ export interface AnalyticsResult {
   referrers: Array<{ host: string | null; count: number }>;
   countries: Array<{ country: string | null; count: number }>;
   userAgents: Array<{ family: string | null; count: number }>;
+  heatmap: number[][];
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T | null> {
