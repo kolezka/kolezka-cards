@@ -87,6 +87,18 @@ upsertCard(
   { type: 'streak', theme: 'github_dark' },
   'octocat',
 );
+upsertCard(
+  octocatId,
+  'summary',
+  'profile-summary',
+  'github_dark',
+  {
+    type: 'profile-summary',
+    theme: 'github_dark',
+    show: { contributions: true, repos: true, joined: true, chart: true },
+  },
+  'octocat',
+);
 
 sqlite.close();
 console.log(`
@@ -94,5 +106,6 @@ Try the seeded cards:
   curl -sS 'http://localhost:3001/c/testuser/counter.svg' | head -1
   curl -sS 'http://localhost:3001/c/octocat/profile.svg' | head -1
   curl -sS 'http://localhost:3001/c/octocat/hello.svg' | head -1
+  curl -sS 'http://localhost:3001/c/octocat/summary.svg' | head -1
   open  http://localhost:5173/dev
 `);

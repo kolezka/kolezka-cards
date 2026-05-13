@@ -5,6 +5,7 @@ export interface GitHubUser {
   public_repos: number;
   followers: number;
   following: number;
+  created_at: string | null;
 }
 
 export interface GitHubRepo {

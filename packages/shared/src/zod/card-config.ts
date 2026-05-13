@@ -52,11 +52,24 @@ export const StreakConfig = CardBase.extend({
   type: z.literal('streak'),
 });
 
+export const ProfileSummaryConfig = CardBase.extend({
+  type: z.literal('profile-summary'),
+  show: z
+    .object({
+      contributions: z.boolean().default(true),
+      repos: z.boolean().default(true),
+      joined: z.boolean().default(true),
+      chart: z.boolean().default(true),
+    })
+    .default({ contributions: true, repos: true, joined: true, chart: true }),
+});
+
 export const CardConfig = z.discriminatedUnion('type', [
   VisitCounterConfig,
   ProfileStatsConfig,
   RepoStatsConfig,
   StreakConfig,
+  ProfileSummaryConfig,
 ]);
 
 export type CardConfig = z.infer<typeof CardConfig>;
@@ -64,3 +77,4 @@ export type VisitCounterConfig = z.infer<typeof VisitCounterConfig>;
 export type ProfileStatsConfig = z.infer<typeof ProfileStatsConfig>;
 export type RepoStatsConfig = z.infer<typeof RepoStatsConfig>;
 export type StreakConfig = z.infer<typeof StreakConfig>;
+export type ProfileSummaryConfig = z.infer<typeof ProfileSummaryConfig>;

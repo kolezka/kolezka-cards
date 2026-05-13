@@ -1,12 +1,14 @@
 import { type DB, schema } from '@kc/db';
 import { computeFingerprint } from '@kc/shared/fingerprint';
 import { renderProfileStats } from '@kc/shared/svg/profile-stats';
+import { renderProfileSummary } from '@kc/shared/svg/profile-summary';
 import { renderRepoStats } from '@kc/shared/svg/repo-stats';
 import { renderStreak } from '@kc/shared/svg/streak';
 import { renderVisitCounter } from '@kc/shared/svg/visit-counter';
 import {
   CardConfig,
   ProfileStatsConfig,
+  ProfileSummaryConfig,
   RepoStatsConfig,
   StreakConfig,
   VisitCounterConfig,
@@ -193,6 +195,26 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
           svg = renderStreak(parsed, {
             login: row.ownerLogin,
             ...stats,
+          });
+          break;
+        }
+        case 'profile-summary': {
+          const merged = applyQueryOverrides(config, query);
+          const parsed = ProfileSummaryConfig.parse(merged);
+          const hidden = hiddenSections(query);
+          for (const k of ['contributions', 'repos', 'joined', 'chart'] as const) {
+            if (hidden.has(k)) parsed.show[k] = false;
+          }
+          const user = await github.getUser(row.ownerLogin);
+          if (!user) return c.text('GitHub user not found', 404);
+          const days = (await fetchContributions(row.ownerLogin)) ?? [];
+          const stats = computeStreakStats(days);
+          svg = renderProfileSummary(parsed, {
+            login: user.login,
+            publicRepos: user.public_repos,
+            totalThisYear: stats.totalThisYear,
+            joinedAt: user.created_at,
+            contributions: days.map((d) => ({ date: d.date, count: d.count })),
           });
           break;
         }
