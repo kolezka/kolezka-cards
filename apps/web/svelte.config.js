@@ -11,5 +11,18 @@ export default {
       precompress: false,
       strict: false,
     }),
+    csp: {
+      mode: 'hash',
+      directives: {
+        'default-src': ['self'],
+        'script-src': ['self'],
+        'style-src': ['self', 'unsafe-inline'],
+        'img-src': ['self', 'data:', 'https:'],
+        'connect-src': ['self'],
+        'frame-ancestors': ['none'],
+        'base-uri': ['self'],
+        'form-action': ['self'],
+      },
+    },
   },
 };
