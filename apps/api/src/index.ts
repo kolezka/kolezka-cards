@@ -1,7 +1,8 @@
 import { getClient } from '@kc/db';
+import { oauthConfigured } from '@kc/shared/env';
 import { Hono } from 'hono';
 import { env } from './env';
-import { logger } from './logger';
+import { hashForLog, logger } from './logger';
 import { csrfGuard } from './middleware/csrf';
 import { renderAbuseLimit } from './middleware/rate-limit';
 import { securityHeaders } from './middleware/security-headers';
@@ -75,6 +76,20 @@ app.onError((err, c) => {
 });
 
 const port = Number(Bun.env.PORT ?? 3001);
+logger.info(
+  {
+    event: 'boot.config',
+    port,
+    nodeEnv: env.NODE_ENV,
+    baseUrl: env.BASE_URL,
+    databasePath: env.DATABASE_PATH,
+    webBuildDir: env.WEB_BUILD_DIR ?? null,
+    githubOauth: oauthConfigured(env),
+    githubClientIdHash: hashForLog(env.GITHUB_CLIENT_ID),
+    sentryConfigured: Boolean(env.SENTRY_DSN),
+  },
+  'boot config resolved',
+);
 logger.info({ port, env: env.NODE_ENV }, 'kc-api listening');
 
 export default {

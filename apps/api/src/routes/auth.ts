@@ -22,6 +22,10 @@ export function createAuthRoute(db: DB, env: Env): Hono {
   app.get('/auth/github', async (c) => {
     const gh = githubProvider(env);
     if (!gh) {
+      logger.warn(
+        { event: 'oauth.not_configured', route: '/auth/github' },
+        'OAuth requested but GITHUB_CLIENT_ID/SECRET not set',
+      );
       return c.json({ error: 'oauth_not_configured' }, 503);
     }
     const { state } = createOAuthState(db, { redirectTo: c.req.query('redirect') ?? null });
@@ -33,7 +37,13 @@ export function createAuthRoute(db: DB, env: Env): Hono {
 
   app.get('/auth/github/callback', async (c) => {
     const gh = githubProvider(env);
-    if (!gh) return c.json({ error: 'oauth_not_configured' }, 503);
+    if (!gh) {
+      logger.warn(
+        { event: 'oauth.not_configured', route: '/auth/github/callback' },
+        'OAuth callback hit but GITHUB_CLIENT_ID/SECRET not set',
+      );
+      return c.json({ error: 'oauth_not_configured' }, 503);
+    }
 
     const code = c.req.query('code');
     const stateQ = c.req.query('state');
