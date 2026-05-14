@@ -1,9 +1,11 @@
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createClient } from './client';
+import { runStartupMigrations } from './run-migrations';
 import { cards, users } from './schema';
 
 const databasePath = process.env.DATABASE_PATH ?? './data/app.db';
+runStartupMigrations(databasePath);
 const { db, sqlite } = createClient(databasePath);
 
 function upsertUser(githubId: number, login: string): string {

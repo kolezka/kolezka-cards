@@ -56,13 +56,19 @@ function buildTransport(): TransportMultiOptions | TransportSingleOptions | unde
 }
 
 const transport = buildTransport();
+const usingMultiTarget = Boolean(
+  transport && (transport as TransportMultiOptions).targets !== undefined,
+);
 
+// pino throws if `formatters.level` is set alongside a multi-target transport
+// because the formatter function cannot be serialized into the worker thread
+// that owns the targets. Skip the string-level formatter in that mode and
+// fall back to pino's default numeric levels — Coolify, pino-pretty, and the
+// {"level":<number>} JSON shape are all standard.
 export const logger = pino({
   level: logLevel,
   base: { service: 'kc-api' },
-  formatters: {
-    level: (label) => ({ level: label }),
-  },
+  ...(usingMultiTarget ? {} : { formatters: { level: (label: string) => ({ level: label }) } }),
   timestamp: pino.stdTimeFunctions.isoTime,
   ...(transport ? { transport } : {}),
 });

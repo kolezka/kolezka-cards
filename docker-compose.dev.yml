@@ -12,8 +12,10 @@
 #   linux installs don't clobber the host's macOS/Linux installs.
 # - DATABASE_PATH points into the shared dev-data named volume so api
 #   container restarts preserve the DB.
-# - The api container runs migrate + seed on first start, then `bun --hot`
-#   so source edits hot-reload.
+# - The api container runs seed on first start, then `bun --hot` so source
+#   edits hot-reload. Schema migrations are applied inline by the API at
+#   startup (see runStartupMigrations in apps/api/src/index.ts), so the
+#   compose command no longer needs a separate migrate step.
 
 services:
   api:
@@ -22,7 +24,6 @@ services:
     working_dir: /app
     command: >
       sh -c "bun install --frozen-lockfile &&
-             bun run packages/db/src/migrate.ts &&
              bun run packages/db/src/seed.ts &&
              bun --hot run apps/api/src/index.ts"
     ports:

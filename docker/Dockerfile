@@ -44,4 +44,6 @@ COPY --from=web-build /app/apps/web/build ./apps/web/build
 VOLUME ["/data"]
 EXPOSE 3000
 
-CMD ["sh", "-c", "cd /app && bun packages/db/src/migrate.ts && bun apps/api/src/index.ts"]
+# Migrations run inline at API startup (apps/api/src/index.ts → runStartupMigrations).
+# Keeping a single process means one connection, one log stream, fail-fast on schema errors.
+CMD ["bun", "apps/api/src/index.ts"]

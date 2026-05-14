@@ -13,6 +13,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check",
     "db:migrate": "bun run src/migrate.ts",
     "db:studio": "drizzle-kit studio",
     "db:seed": "bun run src/seed.ts"

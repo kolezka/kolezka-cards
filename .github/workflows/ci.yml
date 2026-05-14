@@ -56,6 +56,22 @@ jobs:
         working-directory: apps/web
         run: bun x svelte-check --tsconfig ./tsconfig.json --threshold error
 
+      - name: Drizzle — snapshots are internally consistent
+        working-directory: packages/db
+        run: bun x drizzle-kit check
+
+      - name: Drizzle — schema.ts has a matching migration file
+        # Re-run `generate` against the current schema; if it produces a new
+        # migration file or modifies an existing snapshot, a developer forgot
+        # to commit the generated migration before pushing.
+        working-directory: packages/db
+        run: |
+          bun x drizzle-kit generate
+          if ! git diff --exit-code -- migrations; then
+            echo "::error::schema.ts changed without a committed migration. Run 'bun --filter @kc/db db:generate' and commit the result."
+            exit 1
+          fi
+
       - name: Tests
         run: bun test
 

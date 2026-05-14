@@ -62,8 +62,9 @@ bun run typecheck    # tsc --noEmit across all workspaces
 bun run lint         # biome check .
 bun run lint:fix     # biome check --write .
 bun run test         # bun:test runner — 90+ tests
-bun run db:generate  # generate a new Drizzle migration
-bun run db:migrate   # apply migrations
+bun run db:generate  # generate a new Drizzle migration after editing schema.ts
+bun run db:check     # verify migration snapshots are internally consistent
+bun run db:migrate   # apply migrations standalone (also runs inline at API startup)
 bun run db:studio    # drizzle-kit studio
 bun run db:seed      # idempotent seed
 ```
@@ -136,11 +137,11 @@ docker compose logs -f app
 docker compose down -v   # tears down + drops the data volume
 ```
 
-The container runs `bun packages/db/src/migrate.ts && bun apps/api/src/index.ts` on boot — schema is brought up to date every start.
+The container runs `bun apps/api/src/index.ts` on boot. The API calls `runStartupMigrations` as the very first step before opening any request-serving connection, so each container start brings the schema up to date in a single process. A `db.migrate` event in the logs reports `applied`, `total`, and `latestHash`; on failure the API logs `db.migrate.failed` at fatal and exits non-zero so Docker restarts the container instead of serving against a stale schema.
 
 ### Containerized dev (optional)
 
-If you want every dev dependency inside a container, use the dev compose. Bind-mounts the source for hot reload, isolates `node_modules` in a named volume so Alpine installs don't clobber host installs, runs migrate + seed automatically:
+If you want every dev dependency inside a container, use the dev compose. Bind-mounts the source for hot reload, isolates `node_modules` in a named volume so Alpine installs don't clobber host installs, and seeds sample data on first boot. Schema migrations are applied inline by the API at startup (and by `seed.ts` before insert), so the compose command no longer chains a separate migrate step.
 
 ```sh
 docker compose -f docker-compose.dev.yml up
@@ -156,7 +157,8 @@ This is the slower path. Spec-preferred dev is `bun run dev` on the host.
 3. Mount a persistent volume at `/data` for the SQLite database.
 4. Configure environment variables (see table above). At minimum: `APP_SECRET`, `BASE_URL`, `DATABASE_PATH=/data/app.db`, `NODE_ENV=production`. Add GitHub OAuth creds when the OAuth app is registered.
 5. Coolify exposes port 3000 behind its Cloudflare-Tunnel reverse proxy.
-6. The entrypoint runs `bun packages/db/src/migrate.ts && bun apps/api/src/index.ts` — schema migrations are idempotent so every boot brings the DB up to date.
+6. The entrypoint runs `bun apps/api/src/index.ts` directly. The API applies Drizzle migrations inline before serving requests (event `db.migrate` in pino logs); a failure logs `db.migrate.failed` at fatal and aborts the process, so Coolify restarts the container instead of running against a stale schema.
+7. CI (`.github/workflows/ci.yml`) runs `drizzle-kit check` plus a re-run of `drizzle-kit generate` with `git diff --exit-code` to fail any PR that changes `schema.ts` without committing the matching migration file — the most common reason a deploy ships with "migrations not applied".
 
 ## Project layout
 

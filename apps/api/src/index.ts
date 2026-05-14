@@ -1,4 +1,4 @@
-import { getClient } from '@kc/db';
+import { getClient, runStartupMigrations } from '@kc/db';
 import { oauthConfigured } from '@kc/shared/env';
 import { Hono } from 'hono';
 import { env } from './env';
@@ -17,6 +17,23 @@ import { createMeRoute } from './routes/me';
 import { metrics as metricsRoute } from './routes/metrics';
 import { createRenderCardRoute } from './routes/render-card';
 import { bumpCounter } from './services/metrics';
+
+try {
+  const migration = runStartupMigrations(env.DATABASE_PATH);
+  logger.info(
+    {
+      event: 'db.migrate',
+      databasePath: migration.databasePath,
+      applied: migration.applied,
+      total: migration.total,
+      latestHash: migration.latestHash,
+    },
+    `migrations applied=${migration.applied} total=${migration.total}`,
+  );
+} catch (err) {
+  logger.fatal({ event: 'db.migrate.failed', err }, 'startup migration failed; refusing to boot');
+  process.exit(1);
+}
 
 const { db } = getClient(env.DATABASE_PATH);
 await initSentry(env);
