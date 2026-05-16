@@ -15,6 +15,13 @@
       "when": 1778504905379,
       "tag": "0001_equal_slayback",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1778936903009,
+      "tag": "0002_damp_alex_power",
+      "breakpoints": true
     }
   ]
 }

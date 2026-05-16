@@ -1,5 +1,9 @@
 import { type DB, schema } from '@kc/db';
 import { computeFingerprint } from '@kc/shared/fingerprint';
+import {
+  daysForPeriod as followersDaysForPeriod,
+  renderFollowersSparkline,
+} from '@kc/shared/svg/followers-sparkline';
 import { renderGistCounter } from '@kc/shared/svg/gist-counter';
 import { renderLanguages } from '@kc/shared/svg/languages';
 import { renderProfileStats } from '@kc/shared/svg/profile-stats';
@@ -11,6 +15,7 @@ import { renderVisitCounter } from '@kc/shared/svg/visit-counter';
 import { renderWakatime } from '@kc/shared/svg/wakatime';
 import {
   CardConfig,
+  FollowersSparklineConfig,
   GistCounterConfig,
   LanguagesConfig,
   ProfileStatsConfig,
@@ -27,6 +32,7 @@ import { Hono } from 'hono';
 import { env } from '../env';
 import { hashForLog, logger } from '../logger';
 import { noCache } from '../middleware/no-cache';
+import { getFollowersHistory, snapshotFollowers } from '../services/followers-history';
 import {
   type GitHubClient,
   type GitHubLanguages,
@@ -345,6 +351,32 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
           svg = renderTopRepos(
             parsed,
             { login: row.ownerLogin, repos: topRepos },
+            pickDims(parsed, query),
+          );
+          break;
+        }
+        case 'followers-sparkline': {
+          const merged = applyQueryOverrides(config, query);
+          const parsed = FollowersSparklineConfig.parse(merged);
+          const user = await github.getUser(row.ownerLogin);
+          if (!user) return c.text('GitHub user not found', 404);
+          // Lazy snapshot: idempotently insert today's count for this user.
+          // First-ever view starts the history; subsequent views top it up daily.
+          snapshotFollowers(db, card.userId, user.followers);
+          // Pull recent history within the requested period
+          const periodDays = followersDaysForPeriod(parsed.period);
+          const sinceDay =
+            parsed.period === 'all'
+              ? undefined
+              : new Date(Date.now() - periodDays * 86_400_000).toISOString().slice(0, 10);
+          const history = getFollowersHistory(db, card.userId, sinceDay);
+          svg = renderFollowersSparkline(
+            parsed,
+            {
+              login: row.ownerLogin,
+              currentFollowers: user.followers,
+              history,
+            },
             pickDims(parsed, query),
           );
           break;

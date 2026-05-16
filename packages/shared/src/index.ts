@@ -27,5 +27,11 @@ export {
   type WakatimeData,
   type WakatimeLanguageEntry,
 } from './svg/wakatime';
+export {
+  renderFollowersSparkline,
+  daysForPeriod as followersDaysForPeriod,
+  type FollowersSparklineData,
+  type FollowersPoint,
+} from './svg/followers-sparkline';
 export * from './zod/card-config';
 export * from './zod/query-overrides';

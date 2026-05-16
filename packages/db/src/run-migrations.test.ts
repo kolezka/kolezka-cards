@@ -40,7 +40,15 @@ describe('runStartupMigrations', () => {
     sqlite.close();
 
     expect(tables).toEqual(
-      ['cards', 'impression_buckets', 'oauth_state', 'sessions', 'users', 'visits'].sort(),
+      [
+        'cards',
+        'impression_buckets',
+        'oauth_state',
+        'sessions',
+        'users',
+        'users_followers_history',
+        'visits',
+      ].sort(),
     );
   });
 

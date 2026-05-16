@@ -104,6 +104,25 @@ export const oauthState = sqliteTable(
   }),
 );
 
+// Daily snapshots of follower counts per user. Populated lazily on render
+// of a followers-sparkline card; one row per (userId, day) — idempotent.
+export const usersFollowersHistory = sqliteTable(
+  'users_followers_history',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    day: text('day').notNull(), // ISO date YYYY-MM-DD in UTC
+    followers: integer('followers').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (t) => ({
+    pk: uniqueIndex('users_followers_history_pk').on(t.userId, t.day),
+  }),
+);
+
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Card = typeof cards.$inferSelect;
@@ -115,3 +134,5 @@ export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
 export type OAuthState = typeof oauthState.$inferSelect;
 export type NewOAuthState = typeof oauthState.$inferInsert;
+export type UsersFollowersHistory = typeof usersFollowersHistory.$inferSelect;
+export type NewUsersFollowersHistory = typeof usersFollowersHistory.$inferInsert;

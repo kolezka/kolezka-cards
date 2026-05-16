@@ -20,6 +20,7 @@
     "./svg/top-repos": "./src/svg/top-repos.ts",
     "./svg/gist-counter": "./src/svg/gist-counter.ts",
     "./svg/wakatime": "./src/svg/wakatime.ts",
+    "./svg/followers-sparkline": "./src/svg/followers-sparkline.ts",
     "./zod/card-config": "./src/zod/card-config.ts",
     "./zod/query-overrides": "./src/zod/query-overrides.ts"
   },

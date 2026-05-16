@@ -244,3 +244,25 @@ describe('WakatimeConfig', () => {
     ).toBe(false);
   });
 });
+
+describe('FollowersSparklineConfig', () => {
+  it("defaults period to '90d'", () => {
+    const cfg = CardConfig.parse({ type: 'followers-sparkline' });
+    if (cfg.type !== 'followers-sparkline') throw new Error('union narrowing');
+    expect(cfg.period).toBe('90d');
+  });
+
+  it('accepts all period presets', () => {
+    for (const p of ['30d', '90d', '365d', 'all'] as const) {
+      expect(CardConfig.parse({ type: 'followers-sparkline', period: p }).type).toBe(
+        'followers-sparkline',
+      );
+    }
+  });
+
+  it('rejects unknown period', () => {
+    expect(CardConfig.safeParse({ type: 'followers-sparkline', period: '180d' }).success).toBe(
+      false,
+    );
+  });
+});

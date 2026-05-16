@@ -3,6 +3,7 @@ pre-commit:
   commands:
     biome:
       glob: "*.{ts,tsx,js,jsx,json}"
+      exclude: "(packages/db/migrations/.*)"
       run: bun x biome check {staged_files}
     typecheck-shared:
       glob: "packages/shared/**/*.ts"

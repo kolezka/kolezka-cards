@@ -103,6 +103,11 @@ export const GistCounterConfig = CardBase.extend({
     .default({ count: true, latest: true }),
 });
 
+export const FollowersSparklineConfig = CardBase.extend({
+  type: z.literal('followers-sparkline'),
+  period: z.enum(['30d', '90d', '365d', 'all']).default('90d'),
+});
+
 // Wakatime API key is currently stored as plain text in config_json.
 // TODO: encrypt at rest using APP_SECRET-derived key (AES-256-GCM).
 // Acceptable for v1 in a self-hosted single-tenant deployment; not for
@@ -126,6 +131,7 @@ export const CardConfig = z.discriminatedUnion('type', [
   TopReposConfig,
   GistCounterConfig,
   WakatimeConfig,
+  FollowersSparklineConfig,
 ]);
 
 export type CardConfig = z.infer<typeof CardConfig>;
@@ -138,3 +144,4 @@ export type LanguagesConfig = z.infer<typeof LanguagesConfig>;
 export type TopReposConfig = z.infer<typeof TopReposConfig>;
 export type GistCounterConfig = z.infer<typeof GistCounterConfig>;
 export type WakatimeConfig = z.infer<typeof WakatimeConfig>;
+export type FollowersSparklineConfig = z.infer<typeof FollowersSparklineConfig>;
