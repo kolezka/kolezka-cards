@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, type Me } from '$lib/api';
-  import { Logo, UserMenu } from '$lib/ui';
+  import { GlassButton, Logo, UserMenu } from '$lib/ui';
   import '$lib/styles/tokens.css';
 
   let { children } = $props();
@@ -27,7 +27,9 @@
     {#if me}
       <UserMenu {me} />
     {:else if me === null}
-      <a class="btn" href="/auth/github">login</a>
+      <GlassButton variant="primary" size="sm" href="/auth/github">
+        Sign in
+      </GlassButton>
     {:else}
       <span class="login">…</span>
     {/if}
@@ -155,17 +157,6 @@
     align-items: center;
     min-width: 0;
     flex-wrap: nowrap;
-  }
-  .btn {
-    background: var(--accent);
-    color: var(--text-on-accent);
-    padding: 7px 14px;
-    border-radius: var(--radius-pill);
-    font-weight: 600;
-    transition: filter var(--dur-fast) var(--ease-glass);
-  }
-  .btn:hover {
-    filter: brightness(1.08);
   }
   .login {
     color: var(--text-3);
