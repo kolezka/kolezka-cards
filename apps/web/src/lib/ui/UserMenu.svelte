@@ -244,11 +244,15 @@
     .trigger {
       padding: 4px 8px 4px 4px;
     }
-    /* On mobile pin the dropdown to the right edge of the viewport (with a
-       little gap) so it doesn't poke past the navbar pill. */
+    /* On mobile align the dropdown's right edge ~8px from the viewport edge,
+       with a small gap below the header pill. The trigger sits ~20px inside
+       the viewport (header margin 8px + header padding-right 12px), so a
+       -12px right offset on the dropdown lands its right edge 8px from the
+       viewport right. min-width caps it to a sensible mobile width. */
     .dropdown {
-      right: 8px;
-      min-width: min(260px, calc(100vw - 32px));
+      right: -12px;
+      top: calc(100% + 10px);
+      min-width: min(280px, calc(100vw - 16px));
     }
   }
 </style>
