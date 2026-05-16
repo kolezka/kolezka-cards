@@ -238,6 +238,11 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
           if (!user) return c.text('GitHub user not found', 404);
           const days = (await fetchContributions(row.ownerLogin)) ?? [];
           const stats = computeStreakStats(days);
+          const periodOverride = query.period
+            ? query.period
+            : query.days !== undefined
+              ? { days: query.days }
+              : undefined;
           svg = renderProfileSummary(
             parsed,
             {
@@ -247,7 +252,10 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
               joinedAt: user.created_at,
               contributions: days.map((d) => ({ date: d.date, count: d.count })),
             },
-            pickDims(parsed, query),
+            {
+              ...pickDims(parsed, query),
+              ...(periodOverride ? { period: periodOverride } : {}),
+            },
           );
           break;
         }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { CardConfig, VisitCounterConfig } from './card-config';
+import { CardConfig, ProfileSummaryConfig, VisitCounterConfig } from './card-config';
 
 describe('CardSize on CardBase', () => {
   it('accepts width and height within bounds on every card type', () => {
@@ -67,5 +67,59 @@ describe('CardSize on CardBase', () => {
   it('treats size as optional', () => {
     const parsed = VisitCounterConfig.parse({ type: 'visit-counter' });
     expect(parsed.size).toBeUndefined();
+  });
+});
+
+describe('ProfileSummaryConfig period', () => {
+  it('accepts preset names', () => {
+    for (const preset of ['1m', '3m', '6m', '1y', '2y', 'all'] as const) {
+      const cfg = ProfileSummaryConfig.parse({ type: 'profile-summary', period: preset });
+      expect(cfg.period).toBe(preset);
+    }
+  });
+
+  it('accepts a custom {days} object', () => {
+    const cfg = ProfileSummaryConfig.parse({
+      type: 'profile-summary',
+      period: { days: 45 },
+    });
+    expect(cfg.period).toEqual({ days: 45 });
+  });
+
+  it("defaults to '1y' when omitted", () => {
+    const cfg = ProfileSummaryConfig.parse({ type: 'profile-summary' });
+    expect(cfg.period).toBe('1y');
+  });
+
+  it('rejects unknown preset names', () => {
+    const result = ProfileSummaryConfig.safeParse({
+      type: 'profile-summary',
+      period: '5y',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects {days} below 7', () => {
+    const result = ProfileSummaryConfig.safeParse({
+      type: 'profile-summary',
+      period: { days: 3 },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects {days} above 1825', () => {
+    const result = ProfileSummaryConfig.safeParse({
+      type: 'profile-summary',
+      period: { days: 5000 },
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects non-integer {days}', () => {
+    const result = ProfileSummaryConfig.safeParse({
+      type: 'profile-summary',
+      period: { days: 45.5 },
+    });
+    expect(result.success).toBe(false);
   });
 });

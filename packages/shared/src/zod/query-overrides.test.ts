@@ -31,3 +31,27 @@ describe('QueryOverridesSchema w/h coercion', () => {
     expect(q.accent).toBe('#abcdef');
   });
 });
+
+describe('QueryOverridesSchema period/days', () => {
+  it('accepts preset period names', () => {
+    for (const preset of ['1m', '3m', '6m', '1y', '2y', 'all'] as const) {
+      const q = parseQueryOverrides({ period: preset });
+      expect(q.period).toBe(preset);
+    }
+  });
+
+  it('drops unknown period names', () => {
+    const q = parseQueryOverrides({ period: '99y' });
+    expect(q.period).toBeUndefined();
+  });
+
+  it('coerces days from string', () => {
+    const q = parseQueryOverrides({ days: '45' });
+    expect(q.days).toBe(45);
+  });
+
+  it('drops out-of-range days', () => {
+    const q = parseQueryOverrides({ days: '3' });
+    expect(q.days).toBeUndefined();
+  });
+});

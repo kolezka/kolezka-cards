@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { ProfileSummaryConfig } from '../zod/card-config';
-import { renderProfileSummary } from './profile-summary';
+import { daysFromPeriod, renderProfileSummary } from './profile-summary';
 
 const now = new Date('2026-05-13T00:00:00Z');
 
@@ -127,5 +127,105 @@ describe('renderProfileSummary', () => {
     const cfg = ProfileSummaryConfig.parse({ type: 'profile-summary', theme: 'github_dark' });
     const svg = renderProfileSummary(cfg, { ...data, joinedAt: null }, { now });
     expect(svg.includes('GitHub member')).toBe(true);
+  });
+});
+
+describe('daysFromPeriod', () => {
+  it('maps preset names to expected day counts', () => {
+    expect(daysFromPeriod('1m')).toBe(30);
+    expect(daysFromPeriod('3m')).toBe(90);
+    expect(daysFromPeriod('6m')).toBe(180);
+    expect(daysFromPeriod('1y')).toBe(365);
+    expect(daysFromPeriod('2y')).toBe(730);
+  });
+
+  it('returns custom days when given a {days} object', () => {
+    expect(daysFromPeriod({ days: 45 })).toBe(45);
+    expect(daysFromPeriod({ days: 1825 })).toBe(1825);
+  });
+
+  it("'all' derives span from first→last contribution dates", () => {
+    const data = [
+      { date: '2023-01-01', count: 1 },
+      { date: '2024-01-01', count: 1 },
+    ];
+    const days = daysFromPeriod('all', data);
+    // ~365 days between, depending on UTC: allow ±1
+    expect(days).toBeGreaterThanOrEqual(365);
+    expect(days).toBeLessThanOrEqual(367);
+  });
+
+  it("'all' falls back to 365 when data is empty", () => {
+    expect(daysFromPeriod('all', [])).toBe(365);
+    expect(daysFromPeriod('all', undefined)).toBe(365);
+  });
+
+  it('falls back to 365 when period is undefined', () => {
+    expect(daysFromPeriod(undefined)).toBe(365);
+  });
+});
+
+describe('renderProfileSummary period support', () => {
+  it("uses '1y' label by default", () => {
+    const cfg = ProfileSummaryConfig.parse({ type: 'profile-summary' });
+    const svg = renderProfileSummary(cfg, data, { now });
+    expect(svg).toContain('contributions in the last year');
+  });
+
+  it("'1m' label and day-of-month tick formatting", () => {
+    const cfg = ProfileSummaryConfig.parse({ type: 'profile-summary', period: '1m' });
+    const svg = renderProfileSummary(cfg, data, { now });
+    expect(svg).toContain('contributions in the last month');
+    // 1m uses MM/DD tick labels; existing yearly format YY/MM should not appear.
+    // Pick a tick we know will exist: the rightmost tick equals 'now'.
+    expect(svg).toContain('05/13');
+  });
+
+  it("'3m' label and tick formatting", () => {
+    const cfg = ProfileSummaryConfig.parse({ type: 'profile-summary', period: '3m' });
+    const svg = renderProfileSummary(cfg, data, { now });
+    expect(svg).toContain('contributions in the last 3 months');
+  });
+
+  it("'2y' label", () => {
+    const cfg = ProfileSummaryConfig.parse({ type: 'profile-summary', period: '2y' });
+    const svg = renderProfileSummary(cfg, data, { now });
+    expect(svg).toContain('contributions in the last 2 years');
+  });
+
+  it('custom {days: 45} produces "last 45 days" label', () => {
+    const cfg = ProfileSummaryConfig.parse({ type: 'profile-summary', period: { days: 45 } });
+    const svg = renderProfileSummary(cfg, data, { now });
+    expect(svg).toContain('contributions in the last 45 days');
+  });
+
+  it('opts.period overrides config.period at render time', () => {
+    const cfg = ProfileSummaryConfig.parse({ type: 'profile-summary', period: '1y' });
+    const svg = renderProfileSummary(cfg, data, { now, period: '3m' });
+    expect(svg).toContain('contributions in the last 3 months');
+    expect(svg).not.toContain('contributions in the last year');
+  });
+
+  it('handles a period larger than available data without throwing', () => {
+    const cfg = ProfileSummaryConfig.parse({ type: 'profile-summary', period: '2y' });
+    // data has 366 points; 2y window means half the chart is empty — should still render
+    const svg = renderProfileSummary(cfg, data, { now });
+    expect(svg.startsWith('<svg ')).toBe(true);
+    expect(svg).toContain('contributions in the last 2 years');
+  });
+
+  it('handles sparse data inside a small window', () => {
+    const sparse = [
+      { date: '2026-05-01', count: 5 },
+      { date: '2026-05-10', count: 3 },
+    ];
+    const cfg = ProfileSummaryConfig.parse({ type: 'profile-summary', period: '1m' });
+    const svg = renderProfileSummary(
+      cfg,
+      { ...data, contributions: sparse, totalThisYear: 8 },
+      { now },
+    );
+    expect(svg.startsWith('<svg ')).toBe(true);
+    expect(svg).toContain('contributions in the last month');
   });
 });

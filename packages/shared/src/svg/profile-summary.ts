@@ -1,6 +1,6 @@
 import { escapeXml } from '../escape-xml';
 import { type ThemeName, type ThemeTokens, resolveTheme } from '../themes';
-import type { ProfileSummaryConfig } from '../zod/card-config';
+import type { ProfileSummaryConfig, TimePeriod } from '../zod/card-config';
 
 export interface ContributionPoint {
   date: string;
@@ -20,12 +20,85 @@ export interface RenderOptions {
   height?: number;
   hide?: Set<string>;
   now?: Date;
+  period?: TimePeriod;
 }
 
 const DEFAULT_WIDTH = 1080;
 const DEFAULT_HEIGHT = 320;
 
 const MS_PER_DAY = 86_400_000;
+
+export function daysFromPeriod(period: TimePeriod | undefined, data?: ContributionPoint[]): number {
+  if (!period) return 365;
+  if (typeof period === 'string') {
+    switch (period) {
+      case '1m':
+        return 30;
+      case '3m':
+        return 90;
+      case '6m':
+        return 180;
+      case '1y':
+        return 365;
+      case '2y':
+        return 730;
+      case 'all': {
+        if (!data || data.length === 0) return 365;
+        const first = new Date(`${data[0]!.date}T00:00:00Z`).getTime();
+        const last = new Date(`${data[data.length - 1]!.date}T00:00:00Z`).getTime();
+        if (Number.isNaN(first) || Number.isNaN(last)) return 365;
+        return Math.max(7, Math.ceil((last - first) / MS_PER_DAY) + 1);
+      }
+    }
+  }
+  return period.days;
+}
+
+function smoothingWindow(days: number): number {
+  if (days <= 45) return 3;
+  if (days <= 180) return 7;
+  return 14;
+}
+
+function periodLabel(period: TimePeriod | undefined, days: number): string {
+  if (!period) return 'last year';
+  if (typeof period === 'string') {
+    switch (period) {
+      case '1m':
+        return 'last month';
+      case '3m':
+        return 'last 3 months';
+      case '6m':
+        return 'last 6 months';
+      case '1y':
+        return 'last year';
+      case '2y':
+        return 'last 2 years';
+      case 'all':
+        return days >= 365 ? `last ${Math.round(days / 365)} years` : `last ${days} days`;
+    }
+  }
+  return `last ${period.days} days`;
+}
+
+function axisTickCount(days: number): number {
+  if (days <= 30) return 5;
+  if (days <= 90) return 6;
+  if (days <= 365) return 7;
+  return 8;
+}
+
+function axisLabel(date: Date, days: number): string {
+  // For short ranges show day-of-month; for medium+, year/month
+  if (days <= 60) {
+    const dd = String(date.getUTCDate()).padStart(2, '0');
+    const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+    return `${mm}/${dd}`;
+  }
+  const yy = String(date.getUTCFullYear() % 100).padStart(2, '0');
+  const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+  return `${yy}/${mm}`;
+}
 
 function compact(n: number): string {
   if (n < 1000) return String(n);
@@ -76,12 +149,6 @@ function niceTicks(max: number, count = 4): Tick[] {
   return ticks;
 }
 
-function monthShort(date: Date): string {
-  const yy = String(date.getUTCFullYear() % 100).padStart(2, '0');
-  const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
-  return `${yy}/${mm}`;
-}
-
 interface ChartGeom {
   x: number;
   y: number;
@@ -94,6 +161,7 @@ function buildAreaPath(
   geom: ChartGeom,
   maxY: number,
   now: Date,
+  days: number,
 ): {
   area: string;
   line: string;
@@ -102,7 +170,7 @@ function buildAreaPath(
     return { area: '', line: '' };
   }
   const endMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  const startMs = endMs - 365 * MS_PER_DAY;
+  const startMs = endMs - days * MS_PER_DAY;
   const span = endMs - startMs;
 
   const coords: Array<[number, number]> = [];
@@ -148,6 +216,8 @@ export function renderProfileSummary(
   const now = opts.now ?? new Date();
   const hidden = opts.hide ?? new Set<string>();
   const title = escapeXml(config.title ?? data.login);
+  const period = opts.period ?? config.period;
+  const days = daysFromPeriod(period, data.contributions);
 
   const showContrib = config.show.contributions && !hidden.has('contributions');
   const showRepos = config.show.repos && !hidden.has('repos');
@@ -198,12 +268,20 @@ export function renderProfileSummary(
       h: height - chartTopPad - chartBottomPad,
     };
 
-    const daily = smoothDaily(data.contributions, 7);
-    const peak = daily.reduce((m, p) => (p.count > m ? p.count : m), 0);
+    const daily = smoothDaily(data.contributions, smoothingWindow(days));
+    // Only consider points inside the period window when picking the peak,
+    // otherwise a spike outside the window scales the axis incorrectly.
+    const endMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const startMs = endMs - days * MS_PER_DAY;
+    const windowed = daily.filter((p) => {
+      const t = new Date(`${p.date}T00:00:00Z`).getTime();
+      return !Number.isNaN(t) && t >= startMs && t <= endMs;
+    });
+    const peak = windowed.reduce((m, p) => (p.count > m ? p.count : m), 0);
     const ticks = niceTicks(peak, 4);
     const maxY = ticks.length > 0 ? ticks[ticks.length - 1]!.value : 0;
 
-    const { area, line } = buildAreaPath(daily, geom, maxY, now);
+    const { area, line } = buildAreaPath(daily, geom, maxY, now, days);
 
     const gridLines = ticks
       .map((t) => {
@@ -212,16 +290,14 @@ export function renderProfileSummary(
       })
       .join('');
 
-    const monthTickCount = 7;
-    const monthTicks: string[] = [];
-    const endMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-    const startMs = endMs - 365 * MS_PER_DAY;
-    for (let i = 0; i < monthTickCount; i += 1) {
-      const frac = i / (monthTickCount - 1);
+    const tickCount = axisTickCount(days);
+    const xTicks: string[] = [];
+    for (let i = 0; i < tickCount; i += 1) {
+      const frac = i / (tickCount - 1);
       const t = startMs + frac * (endMs - startMs);
       const px = geom.x + frac * geom.w;
-      const label = monthShort(new Date(t));
-      monthTicks.push(
+      const label = axisLabel(new Date(t), days);
+      xTicks.push(
         `<text class="axis" x="${px.toFixed(2)}" y="${(geom.y + geom.h + 18).toFixed(2)}" text-anchor="middle">${escapeXml(label)}</text>`,
       );
     }
@@ -229,9 +305,9 @@ export function renderProfileSummary(
     const baseLine = `<line class="baseline" x1="${geom.x}" x2="${geom.x + geom.w}" y1="${geom.y + geom.h}" y2="${geom.y + geom.h}"/>`;
     const areaPath = area ? `<path class="area" d="${area}"/>` : '';
     const linePath = line ? `<path class="line" d="${line}"/>` : '';
-    const chartLabel = `<text class="muted-sm" x="${geom.x}" y="${padY + 24}">contributions in the last year</text>`;
+    const chartLabel = `<text class="muted-sm" x="${geom.x}" y="${padY + 24}">contributions in the ${periodLabel(period, days)}</text>`;
 
-    chartGroup = `${chartLabel}${gridLines}${baseLine}${areaPath}${linePath}${monthTicks.join('')}`;
+    chartGroup = `${chartLabel}${gridLines}${baseLine}${areaPath}${linePath}${xTicks.join('')}`;
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${title}">

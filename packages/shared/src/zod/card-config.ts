@@ -62,8 +62,15 @@ export const StreakConfig = CardBase.extend({
   type: z.literal('streak'),
 });
 
+export const TimePeriod = z.union([
+  z.enum(['1m', '3m', '6m', '1y', '2y', 'all']),
+  z.object({ days: z.number().int().min(7).max(1825) }).strict(),
+]);
+export type TimePeriod = z.infer<typeof TimePeriod>;
+
 export const ProfileSummaryConfig = CardBase.extend({
   type: z.literal('profile-summary'),
+  period: TimePeriod.default('1y'),
   show: z
     .object({
       contributions: z.boolean().default(true),
