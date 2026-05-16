@@ -17,11 +17,21 @@ const ThemeOverrides = z
   })
   .strict();
 
+const CardSize = z
+  .object({
+    width: z.number().int().min(200).max(1200).optional(),
+    height: z.number().int().min(80).max(600).optional(),
+  })
+  .strict();
+
 const CardBase = z.object({
   theme: ThemeName.default('github_dark'),
   title: z.string().max(80).optional(),
   overrides: ThemeOverrides.optional(),
+  size: CardSize.optional(),
 });
+
+export type CardSize = z.infer<typeof CardSize>;
 
 export const VisitCounterConfig = CardBase.extend({
   type: z.literal('visit-counter'),

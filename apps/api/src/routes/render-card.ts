@@ -57,6 +57,19 @@ function topLanguages(langs: GitHubLanguages, take = 4): Array<{ name: string; b
     .slice(0, take);
 }
 
+function pickDims(
+  cfg: { size?: { width?: number; height?: number } },
+  q: { w?: number; h?: number },
+): { width?: number; height?: number } {
+  // Query overrides config; both fall back to per-renderer defaults.
+  const width = q.w ?? cfg.size?.width;
+  const height = q.h ?? cfg.size?.height;
+  const dims: { width?: number; height?: number } = {};
+  if (width !== undefined) dims.width = width;
+  if (height !== undefined) dims.height = height;
+  return dims;
+}
+
 function applyQueryOverrides<T extends { theme?: unknown; title?: string; overrides?: unknown }>(
   cfg: T,
   q: ReturnType<typeof parseQueryOverrides>,
@@ -130,10 +143,14 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
         case 'visit-counter': {
           const cfg = applyQueryOverrides(config, query);
           const parsed = VisitCounterConfig.parse(cfg);
-          svg = renderVisitCounter(parsed, {
-            totalImpressions: visit.totalImpressions,
-            uniqueVisits: visit.uniqueVisits,
-          });
+          svg = renderVisitCounter(
+            parsed,
+            {
+              totalImpressions: visit.totalImpressions,
+              uniqueVisits: visit.uniqueVisits,
+            },
+            pickDims(parsed, query),
+          );
           break;
         }
         case 'profile-stats': {
@@ -159,13 +176,17 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
             }
             langs = topLanguages(agg);
           }
-          svg = renderProfileStats(parsed, {
-            login: user.login,
-            publicRepos: user.public_repos,
-            followers: user.followers,
-            following: user.following,
-            topLanguages: langs,
-          });
+          svg = renderProfileStats(
+            parsed,
+            {
+              login: user.login,
+              publicRepos: user.public_repos,
+              followers: user.followers,
+              following: user.following,
+              topLanguages: langs,
+            },
+            pickDims(parsed, query),
+          );
           break;
         }
         case 'repo-stats': {
@@ -176,14 +197,18 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
           const repo = await github.getRepo(owner, name);
           if (!repo) return c.text('Repo not found', 404);
           const langs = (await github.getRepoLanguages(owner, name)) ?? {};
-          svg = renderRepoStats(parsed, {
-            owner,
-            name,
-            stars: repo.stargazers_count,
-            forks: repo.forks_count,
-            primaryLanguage: repo.language,
-            languages: topLanguages(langs),
-          });
+          svg = renderRepoStats(
+            parsed,
+            {
+              owner,
+              name,
+              stars: repo.stargazers_count,
+              forks: repo.forks_count,
+              primaryLanguage: repo.language,
+              languages: topLanguages(langs),
+            },
+            pickDims(parsed, query),
+          );
           break;
         }
         case 'streak': {
@@ -192,10 +217,14 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
           const days = await fetchContributions(row.ownerLogin);
           if (!days) return c.text('GitHub user not found', 404);
           const stats = computeStreakStats(days);
-          svg = renderStreak(parsed, {
-            login: row.ownerLogin,
-            ...stats,
-          });
+          svg = renderStreak(
+            parsed,
+            {
+              login: row.ownerLogin,
+              ...stats,
+            },
+            pickDims(parsed, query),
+          );
           break;
         }
         case 'profile-summary': {
@@ -209,13 +238,17 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
           if (!user) return c.text('GitHub user not found', 404);
           const days = (await fetchContributions(row.ownerLogin)) ?? [];
           const stats = computeStreakStats(days);
-          svg = renderProfileSummary(parsed, {
-            login: user.login,
-            publicRepos: user.public_repos,
-            totalThisYear: stats.totalThisYear,
-            joinedAt: user.created_at,
-            contributions: days.map((d) => ({ date: d.date, count: d.count })),
-          });
+          svg = renderProfileSummary(
+            parsed,
+            {
+              login: user.login,
+              publicRepos: user.public_repos,
+              totalThisYear: stats.totalThisYear,
+              joinedAt: user.created_at,
+              contributions: days.map((d) => ({ date: d.date, count: d.count })),
+            },
+            pickDims(parsed, query),
+          );
           break;
         }
       }

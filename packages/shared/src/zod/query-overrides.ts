@@ -13,6 +13,8 @@ export const QueryOverridesSchema = z
     muted: HexColor.optional(),
     border: HexColor.optional(),
     hide: z.string().optional(),
+    w: z.coerce.number().int().min(200).max(1200).optional(),
+    h: z.coerce.number().int().min(80).max(600).optional(),
   })
   .partial();
 
