@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, type Me } from '$lib/api';
+  import { Logo } from '$lib/ui';
   import '$lib/styles/tokens.css';
 
   let { children } = $props();
@@ -22,16 +23,18 @@
 </script>
 
 <header>
-  <a class="brand" href="/">kolezka-cards</a>
+  <a class="brand" href="/" aria-label="kolezka-cards home">
+    <Logo size={28} />
+  </a>
   <nav>
-    <a href="/methodology">methodology</a>
-    <a href="/privacy">privacy</a>
+    <a class="nav-link nav-secondary" href="/methodology">methodology</a>
+    <a class="nav-link nav-secondary" href="/privacy">privacy</a>
     {#if me}
-      <a href="/app">cards</a>
+      <a class="nav-link" href="/app">cards</a>
       <span class="login">@{me.login}</span>
       <button type="button" onclick={logout}>logout</button>
     {:else if me === null}
-      <a class="btn" href="/auth/github">login with GitHub</a>
+      <a class="btn" href="/auth/github">login</a>
     {:else}
       <span class="login">…</span>
     {/if}
@@ -65,47 +68,69 @@
     backdrop-filter: blur(var(--blur-md)) saturate(180%);
     -webkit-backdrop-filter: blur(var(--blur-md)) saturate(180%);
   }
-  @media (max-width: 520px) {
+  @media (max-width: 640px) {
     header {
       top: 8px;
       margin: 8px 8px 0;
       padding: 6px 10px;
+      gap: 8px;
     }
     .brand {
-      font-size: 14px;
+      width: 36px;
+      height: 32px;
     }
     nav {
       gap: 2px;
     }
-    nav a {
-      padding: 6px 8px;
+    .nav-link {
+      padding: 6px 10px;
       font-size: 13px;
+    }
+    /* Hide secondary nav (methodology / privacy) when space is tight —
+       they're still reachable from the footer-style links in long-form
+       page bodies. Primary nav (cards / login / logout) stays. */
+    .nav-secondary {
+      display: none;
     }
     .login {
       display: none;
     }
   }
   .brand {
-    font-weight: 700;
-    letter-spacing: -0.01em;
-    color: var(--text-1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 36px;
+    border-radius: var(--radius-pill);
     text-decoration: none;
-    padding: 6px 10px;
+    transition: background var(--dur-fast) var(--ease-glass),
+      transform var(--dur-fast) var(--ease-glass);
+  }
+  .brand:hover {
+    background: var(--glass-3);
+  }
+  .brand:active {
+    transform: scale(0.96);
   }
   nav {
     display: flex;
-    gap: 6px;
+    gap: 4px;
     align-items: center;
+    min-width: 0;
+    flex-wrap: nowrap;
   }
-  nav a {
+  .nav-link {
     color: var(--text-2);
     text-decoration: none;
     padding: 6px 12px;
     border-radius: var(--radius-pill);
+    white-space: nowrap;
     transition: color var(--dur-fast) var(--ease-glass),
       background var(--dur-fast) var(--ease-glass);
   }
-  nav a:hover {
+  .nav-link:hover {
     color: var(--text-1);
     background: var(--glass-3);
   }
