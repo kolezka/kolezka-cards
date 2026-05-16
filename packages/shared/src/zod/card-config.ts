@@ -103,6 +103,19 @@ export const GistCounterConfig = CardBase.extend({
     .default({ count: true, latest: true }),
 });
 
+// Wakatime API key is currently stored as plain text in config_json.
+// TODO: encrypt at rest using APP_SECRET-derived key (AES-256-GCM).
+// Acceptable for v1 in a self-hosted single-tenant deployment; not for
+// multi-tenant SaaS.
+export const WakatimeConfig = CardBase.extend({
+  type: z.literal('wakatime'),
+  apiKey: z.string().min(20).max(200),
+  range: z
+    .enum(['last_7_days', 'last_30_days', 'last_6_months', 'last_year'])
+    .default('last_7_days'),
+  limit: z.number().int().min(3).max(10).default(6),
+});
+
 export const CardConfig = z.discriminatedUnion('type', [
   VisitCounterConfig,
   ProfileStatsConfig,
@@ -112,6 +125,7 @@ export const CardConfig = z.discriminatedUnion('type', [
   LanguagesConfig,
   TopReposConfig,
   GistCounterConfig,
+  WakatimeConfig,
 ]);
 
 export type CardConfig = z.infer<typeof CardConfig>;
@@ -123,3 +137,4 @@ export type ProfileSummaryConfig = z.infer<typeof ProfileSummaryConfig>;
 export type LanguagesConfig = z.infer<typeof LanguagesConfig>;
 export type TopReposConfig = z.infer<typeof TopReposConfig>;
 export type GistCounterConfig = z.infer<typeof GistCounterConfig>;
+export type WakatimeConfig = z.infer<typeof WakatimeConfig>;

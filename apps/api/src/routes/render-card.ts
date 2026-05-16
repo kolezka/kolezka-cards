@@ -8,6 +8,7 @@ import { renderRepoStats } from '@kc/shared/svg/repo-stats';
 import { renderStreak } from '@kc/shared/svg/streak';
 import { renderTopRepos } from '@kc/shared/svg/top-repos';
 import { renderVisitCounter } from '@kc/shared/svg/visit-counter';
+import { renderWakatime } from '@kc/shared/svg/wakatime';
 import {
   CardConfig,
   GistCounterConfig,
@@ -18,6 +19,7 @@ import {
   StreakConfig,
   TopReposConfig,
   VisitCounterConfig,
+  WakatimeConfig,
 } from '@kc/shared/zod/card-config';
 import { hiddenSections, parseQueryOverrides } from '@kc/shared/zod/query-overrides';
 import { and, eq } from 'drizzle-orm';
@@ -345,6 +347,50 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
             { login: row.ownerLogin, repos: topRepos },
             pickDims(parsed, query),
           );
+          break;
+        }
+        case 'wakatime': {
+          const merged = applyQueryOverrides(config, query);
+          const parsed = WakatimeConfig.parse(merged);
+          // Wakatime "stats" endpoint provides aggregated language breakdown
+          // for the chosen range with grand_total. https://wakatime.com/developers
+          const url = `https://wakatime.com/api/v1/users/current/stats/${encodeURIComponent(parsed.range)}`;
+          const res = await fetch(url, {
+            headers: {
+              Authorization: `Basic ${btoa(parsed.apiKey)}`,
+              Accept: 'application/json',
+              'User-Agent': 'kolezka-cards',
+            },
+          });
+          if (!res.ok) {
+            logger.warn(
+              { cardId: card.id, status: res.status },
+              'wakatime fetch failed; rendering empty state',
+            );
+            svg = renderWakatime(
+              parsed,
+              { login: row.ownerLogin, totalSeconds: 0, languages: [] },
+              pickDims(parsed, query),
+            );
+          } else {
+            const body = (await res.json()) as {
+              data?: {
+                total_seconds?: number;
+                languages?: Array<{ name: string; total_seconds: number; percent: number }>;
+              };
+            };
+            const total = body.data?.total_seconds ?? 0;
+            const langs = (body.data?.languages ?? []).map((l) => ({
+              name: l.name,
+              seconds: l.total_seconds,
+              percent: l.percent,
+            }));
+            svg = renderWakatime(
+              parsed,
+              { login: row.ownerLogin, totalSeconds: total, languages: langs },
+              pickDims(parsed, query),
+            );
+          }
           break;
         }
         case 'gist-counter': {

@@ -201,3 +201,46 @@ describe('GistCounterConfig', () => {
     expect(cfg.type).toBe('gist-counter');
   });
 });
+
+describe('WakatimeConfig', () => {
+  it('defaults range to last_7_days and limit to 6', () => {
+    const cfg = CardConfig.parse({
+      type: 'wakatime',
+      apiKey: 'waka_secret_1234567890abcdef',
+    });
+    if (cfg.type !== 'wakatime') throw new Error('union narrowing');
+    expect(cfg.range).toBe('last_7_days');
+    expect(cfg.limit).toBe(6);
+  });
+
+  it('rejects an apiKey that is too short', () => {
+    const r = CardConfig.safeParse({ type: 'wakatime', apiKey: 'short' });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects unknown range', () => {
+    const r = CardConfig.safeParse({
+      type: 'wakatime',
+      apiKey: 'waka_secret_1234567890abcdef',
+      range: 'all_time',
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects limit out of bounds', () => {
+    expect(
+      CardConfig.safeParse({
+        type: 'wakatime',
+        apiKey: 'waka_secret_1234567890abcdef',
+        limit: 2,
+      }).success,
+    ).toBe(false);
+    expect(
+      CardConfig.safeParse({
+        type: 'wakatime',
+        apiKey: 'waka_secret_1234567890abcdef',
+        limit: 50,
+      }).success,
+    ).toBe(false);
+  });
+});

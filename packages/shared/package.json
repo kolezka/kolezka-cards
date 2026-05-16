@@ -19,6 +19,7 @@
     "./svg/languages": "./src/svg/languages.ts",
     "./svg/top-repos": "./src/svg/top-repos.ts",
     "./svg/gist-counter": "./src/svg/gist-counter.ts",
+    "./svg/wakatime": "./src/svg/wakatime.ts",
     "./zod/card-config": "./src/zod/card-config.ts",
     "./zod/query-overrides": "./src/zod/query-overrides.ts"
   },

@@ -22,5 +22,10 @@ export {
   type TopRepoEntry,
 } from './svg/top-repos';
 export { renderGistCounter, type GistCounterData } from './svg/gist-counter';
+export {
+  renderWakatime,
+  type WakatimeData,
+  type WakatimeLanguageEntry,
+} from './svg/wakatime';
 export * from './zod/card-config';
 export * from './zod/query-overrides';
