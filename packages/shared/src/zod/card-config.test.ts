@@ -161,3 +161,29 @@ describe('LanguagesConfig', () => {
     expect(cfg.type).toBe('languages');
   });
 });
+
+describe('TopReposConfig', () => {
+  it('defaults limit to 5 and sort to stars', () => {
+    const cfg = CardConfig.parse({ type: 'top-repos' });
+    if (cfg.type !== 'top-repos') throw new Error('union narrowing');
+    expect(cfg.limit).toBe(5);
+    expect(cfg.sort).toBe('stars');
+  });
+
+  it('accepts sort forks and updated', () => {
+    expect(CardConfig.parse({ type: 'top-repos', sort: 'forks' }).type).toBe('top-repos');
+    expect(CardConfig.parse({ type: 'top-repos', sort: 'updated' }).type).toBe('top-repos');
+  });
+
+  it('rejects limit below 3', () => {
+    expect(CardConfig.safeParse({ type: 'top-repos', limit: 2 }).success).toBe(false);
+  });
+
+  it('rejects limit above 8', () => {
+    expect(CardConfig.safeParse({ type: 'top-repos', limit: 12 }).success).toBe(false);
+  });
+
+  it('rejects unknown sort', () => {
+    expect(CardConfig.safeParse({ type: 'top-repos', sort: 'random' }).success).toBe(false);
+  });
+});

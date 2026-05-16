@@ -87,6 +87,12 @@ export const LanguagesConfig = CardBase.extend({
   style: z.enum(['bar', 'donut']).default('bar'),
 });
 
+export const TopReposConfig = CardBase.extend({
+  type: z.literal('top-repos'),
+  limit: z.number().int().min(3).max(8).default(5),
+  sort: z.enum(['stars', 'forks', 'updated']).default('stars'),
+});
+
 export const CardConfig = z.discriminatedUnion('type', [
   VisitCounterConfig,
   ProfileStatsConfig,
@@ -94,6 +100,7 @@ export const CardConfig = z.discriminatedUnion('type', [
   StreakConfig,
   ProfileSummaryConfig,
   LanguagesConfig,
+  TopReposConfig,
 ]);
 
 export type CardConfig = z.infer<typeof CardConfig>;
@@ -103,3 +110,4 @@ export type RepoStatsConfig = z.infer<typeof RepoStatsConfig>;
 export type StreakConfig = z.infer<typeof StreakConfig>;
 export type ProfileSummaryConfig = z.infer<typeof ProfileSummaryConfig>;
 export type LanguagesConfig = z.infer<typeof LanguagesConfig>;
+export type TopReposConfig = z.infer<typeof TopReposConfig>;

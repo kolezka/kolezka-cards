@@ -5,6 +5,7 @@ import { renderProfileStats } from '@kc/shared/svg/profile-stats';
 import { renderProfileSummary } from '@kc/shared/svg/profile-summary';
 import { renderRepoStats } from '@kc/shared/svg/repo-stats';
 import { renderStreak } from '@kc/shared/svg/streak';
+import { renderTopRepos } from '@kc/shared/svg/top-repos';
 import { renderVisitCounter } from '@kc/shared/svg/visit-counter';
 import {
   CardConfig,
@@ -13,6 +14,7 @@ import {
   ProfileSummaryConfig,
   RepoStatsConfig,
   StreakConfig,
+  TopReposConfig,
   VisitCounterConfig,
 } from '@kc/shared/zod/card-config';
 import { hiddenSections, parseQueryOverrides } from '@kc/shared/zod/query-overrides';
@@ -283,6 +285,62 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
           svg = renderLanguages(
             parsed,
             { login: row.ownerLogin, languages },
+            pickDims(parsed, query),
+          );
+          break;
+        }
+        case 'top-repos': {
+          const merged = applyQueryOverrides(config, query);
+          const parsed = TopReposConfig.parse(merged);
+          const sortParam =
+            parsed.sort === 'updated' ? 'pushed' : parsed.sort === 'forks' ? 'updated' : 'pushed';
+          // GitHub /users/:user/repos supports sort=created|updated|pushed|full_name (no stars).
+          // Fetch a reasonable batch and sort client-side by stars/forks/updated.
+          const reposRes = await fetch(
+            `https://api.github.com/users/${encodeURIComponent(row.ownerLogin)}/repos?per_page=100&sort=${sortParam}`,
+            { headers: { 'User-Agent': 'kolezka-cards', Accept: 'application/vnd.github+json' } },
+          );
+          let topRepos: Array<{
+            name: string;
+            description: string | null;
+            language: string | null;
+            stars: number;
+            forks: number;
+            updatedAt: string | null;
+          }> = [];
+          if (reposRes.ok) {
+            const repos = (await reposRes.json()) as Array<{
+              name: string;
+              description: string | null;
+              language: string | null;
+              stargazers_count: number;
+              forks_count: number;
+              pushed_at: string | null;
+              fork: boolean;
+              archived: boolean;
+            }>;
+            const candidates = repos
+              .filter((r) => !r.fork && !r.archived)
+              .map((r) => ({
+                name: r.name,
+                description: r.description,
+                language: r.language,
+                stars: r.stargazers_count,
+                forks: r.forks_count,
+                updatedAt: r.pushed_at,
+              }));
+            candidates.sort((a, b) => {
+              if (parsed.sort === 'stars') return b.stars - a.stars;
+              if (parsed.sort === 'forks') return b.forks - a.forks;
+              const at = a.updatedAt ? Date.parse(a.updatedAt) : 0;
+              const bt = b.updatedAt ? Date.parse(b.updatedAt) : 0;
+              return bt - at;
+            });
+            topRepos = candidates.slice(0, parsed.limit);
+          }
+          svg = renderTopRepos(
+            parsed,
+            { login: row.ownerLogin, repos: topRepos },
             pickDims(parsed, query),
           );
           break;

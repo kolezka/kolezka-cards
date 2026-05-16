@@ -16,5 +16,10 @@ export {
   type LanguagesData,
   type LanguageEntry,
 } from './svg/languages';
+export {
+  renderTopRepos,
+  type TopReposData,
+  type TopRepoEntry,
+} from './svg/top-repos';
 export * from './zod/card-config';
 export * from './zod/query-overrides';

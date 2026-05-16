@@ -17,6 +17,7 @@
     "./svg/streak": "./src/svg/streak.ts",
     "./svg/profile-summary": "./src/svg/profile-summary.ts",
     "./svg/languages": "./src/svg/languages.ts",
+    "./svg/top-repos": "./src/svg/top-repos.ts",
     "./zod/card-config": "./src/zod/card-config.ts",
     "./zod/query-overrides": "./src/zod/query-overrides.ts"
   },
