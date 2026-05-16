@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, type Me } from '$lib/api';
+  import '$lib/styles/tokens.css';
 
   let { children } = $props();
   let me = $state<Me | null | undefined>(undefined);
@@ -42,59 +43,83 @@
 </main>
 
 <style>
-  :global(html, body) {
-    margin: 0;
-    padding: 0;
-    background: #0d1117;
-    color: #e6edf3;
-    font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  :global(body) {
+    font-size: 15px;
+    line-height: 1.55;
   }
   header {
-    max-width: 1040px;
-    margin: 0 auto;
-    padding: 16px 24px;
+    position: sticky;
+    top: 16px;
+    z-index: 50;
+    max-width: 1100px;
+    margin: 16px auto 0;
+    padding: 10px 18px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid #21262d;
+    background: var(--glass-2);
+    border: 1px solid var(--ring-soft);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-1), var(--highlight);
+    backdrop-filter: blur(var(--blur-md)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--blur-md)) saturate(180%);
   }
   .brand {
-    font-weight: 600;
-    color: #e6edf3;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text-1);
     text-decoration: none;
+    padding: 6px 10px;
   }
   nav {
     display: flex;
-    gap: 14px;
+    gap: 6px;
     align-items: center;
   }
   nav a {
-    color: #8b949e;
+    color: var(--text-2);
     text-decoration: none;
+    padding: 6px 12px;
+    border-radius: var(--radius-pill);
+    transition: color var(--dur-fast) var(--ease-glass),
+      background var(--dur-fast) var(--ease-glass);
   }
   nav a:hover {
-    color: #e6edf3;
+    color: var(--text-1);
+    background: var(--glass-3);
   }
   .btn {
-    background: #238636;
-    color: white;
-    padding: 6px 12px;
-    border-radius: 6px;
+    background: var(--accent);
+    color: var(--text-on-accent);
+    padding: 7px 14px;
+    border-radius: var(--radius-pill);
+    font-weight: 600;
+    transition: filter var(--dur-fast) var(--ease-glass);
+  }
+  .btn:hover {
+    filter: brightness(1.08);
   }
   .login {
-    color: #8b949e;
+    color: var(--text-3);
+    padding: 0 8px;
+    font-size: 13px;
   }
   button {
-    background: #21262d;
-    color: #e6edf3;
-    border: 1px solid #30363d;
-    border-radius: 6px;
-    padding: 4px 10px;
+    background: var(--glass-3);
+    color: var(--text-1);
+    border: 1px solid var(--ring-soft);
+    border-radius: var(--radius-pill);
+    padding: 5px 12px;
+    font: inherit;
     cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-glass);
+  }
+  button:hover {
+    background: var(--glass-4);
   }
   main {
-    max-width: 1040px;
+    max-width: 1100px;
     margin: 0 auto;
-    padding: 24px;
+    padding: 32px 24px 80px;
   }
 </style>
