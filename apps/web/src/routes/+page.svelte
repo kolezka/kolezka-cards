@@ -15,21 +15,6 @@
     }
   });
 
-  let copied = $state(false);
-  const example = `![visits](https://kolezka-cards.example.com/c/yourname/profile.svg)`;
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(example);
-      copied = true;
-      setTimeout(() => {
-        copied = false;
-      }, 1500);
-    } catch {
-      copied = false;
-    }
-  }
-
   const features: Array<{ title: string; body: string; icon: string }> = [
     {
       title: 'Live SVG cards',
@@ -84,26 +69,6 @@
       <p>{f.body}</p>
     </Glass>
   {/each}
-</section>
-
-<section class="how">
-  <Glass tier={3} rounded="lg" padding="lg">
-    <h2>How it works</h2>
-    <ol>
-      <li><span class="num">1</span>Sign in with GitHub. We only store your public profile.</li>
-      <li><span class="num">2</span>Pick a card type. Configure size, period, theme, and sections.</li>
-      <li><span class="num">3</span>Copy a markdown snippet and paste it into your README.</li>
-    </ol>
-    <Glass tier={1} rounded="md" padding="sm" class="code-block">
-      <code>{example}</code>
-    </Glass>
-    <div class="how-actions">
-      <GlassButton variant="ghost" size="sm" onclick={copy}>
-        {copied ? '✓ Copied' : 'Copy snippet'}
-      </GlassButton>
-      <a class="link" href="/methodology">Read the methodology →</a>
-    </div>
-  </Glass>
 </section>
 
 <style>
@@ -186,62 +151,5 @@
     color: var(--text-2);
     font-size: 13.5px;
     line-height: 1.55;
-  }
-
-  .how {
-    margin: 56px 0 0;
-  }
-  .how h2 {
-    margin: 0 0 22px;
-    font-size: 24px;
-    letter-spacing: -0.01em;
-  }
-  ol {
-    margin: 0 0 22px;
-    padding: 0;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-    color: var(--text-1);
-  }
-  ol .num {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: var(--glass-3);
-    border: 1px solid var(--ring-soft);
-    color: var(--accent);
-    font-weight: 700;
-    margin-right: 12px;
-    font-size: 13px;
-  }
-  :global(.code-block) {
-    font-family: var(--font-mono);
-    overflow-x: auto;
-  }
-  :global(.code-block code) {
-    font-family: inherit;
-    color: var(--text-1);
-    font-size: 13.5px;
-  }
-  .how-actions {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-top: 14px;
-    flex-wrap: wrap;
-  }
-  .link {
-    color: var(--accent);
-    text-decoration: none;
-    font-size: 13.5px;
-    font-weight: 600;
-  }
-  .link:hover {
-    filter: brightness(1.1);
   }
 </style>
