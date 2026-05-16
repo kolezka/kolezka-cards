@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { api, type Me } from '$lib/api';
+  import { Glass } from '$lib/ui';
 
   let { children } = $props();
   let ready = $state(false);
@@ -26,18 +27,40 @@
 </svelte:head>
 
 {#if ready && me}
-  <div class="grid">
-    {@render children?.()}
-  </div>
+  {@render children?.()}
 {:else}
-  <p class="muted">Checking session…</p>
+  <Glass tier={2} rounded="lg" padding="lg" class="checking">
+    <span class="dot" aria-hidden="true"></span> Checking session…
+  </Glass>
 {/if}
 
 <style>
-  .grid {
-    display: block;
+  :global(.checking) {
+    color: var(--text-2);
+    text-align: center;
+    margin: 80px auto;
+    max-width: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
   }
-  .muted {
-    color: #8b949e;
+  :global(.checking .dot) {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.2s var(--ease-glass) infinite;
+  }
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 0.4;
+      transform: scale(0.85);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 </style>

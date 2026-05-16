@@ -1,6 +1,6 @@
 <script lang="ts">
   type Props = {
-    value: string;
+    value?: string;
     type?: 'text' | 'email' | 'url' | 'password' | 'search';
     placeholder?: string;
     label?: string;
@@ -30,6 +30,9 @@
     oninput,
     onchange,
   }: Props = $props();
+
+  // Coerce undefined incoming binds to empty string so DOM never gets undefined.
+  let displayValue = $derived(value ?? '');
 
   let inputId = $derived(id ?? `i-${Math.random().toString(36).slice(2, 8)}`);
 </script>

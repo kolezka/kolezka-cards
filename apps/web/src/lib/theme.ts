@@ -15,6 +15,11 @@ export const CARD_TYPES = [
   'repo-stats',
   'streak',
   'profile-summary',
+  'languages',
+  'top-repos',
+  'gist-counter',
+  'wakatime',
+  'followers-sparkline',
 ] as const;
 export type CardType = (typeof CARD_TYPES)[number];
 
@@ -32,7 +37,18 @@ export function defaultConfigFor(type: CardType, theme: ThemeName = 'github_dark
       return {
         type,
         theme,
+        period: '1y',
         show: { contributions: true, repos: true, joined: true, chart: true },
       };
+    case 'languages':
+      return { type, theme, limit: 8, style: 'bar' };
+    case 'top-repos':
+      return { type, theme, limit: 5, sort: 'stars' };
+    case 'gist-counter':
+      return { type, theme, show: { count: true, latest: true } };
+    case 'wakatime':
+      return { type, theme, apiKey: '', range: 'last_7_days', limit: 6 };
+    case 'followers-sparkline':
+      return { type, theme, period: '90d' };
   }
 }
