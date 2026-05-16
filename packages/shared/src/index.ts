@@ -21,5 +21,6 @@ export {
   type TopReposData,
   type TopRepoEntry,
 } from './svg/top-repos';
+export { renderGistCounter, type GistCounterData } from './svg/gist-counter';
 export * from './zod/card-config';
 export * from './zod/query-overrides';

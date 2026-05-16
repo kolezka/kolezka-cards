@@ -187,3 +187,17 @@ describe('TopReposConfig', () => {
     expect(CardConfig.safeParse({ type: 'top-repos', sort: 'random' }).success).toBe(false);
   });
 });
+
+describe('GistCounterConfig', () => {
+  it('defaults show.count and show.latest to true', () => {
+    const cfg = CardConfig.parse({ type: 'gist-counter' });
+    if (cfg.type !== 'gist-counter') throw new Error('union narrowing');
+    expect(cfg.show.count).toBe(true);
+    expect(cfg.show.latest).toBe(true);
+  });
+
+  it('parses through CardConfig discriminated union', () => {
+    const cfg = CardConfig.parse({ type: 'gist-counter', show: { count: false, latest: true } });
+    expect(cfg.type).toBe('gist-counter');
+  });
+});

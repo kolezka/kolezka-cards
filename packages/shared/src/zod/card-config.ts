@@ -93,6 +93,16 @@ export const TopReposConfig = CardBase.extend({
   sort: z.enum(['stars', 'forks', 'updated']).default('stars'),
 });
 
+export const GistCounterConfig = CardBase.extend({
+  type: z.literal('gist-counter'),
+  show: z
+    .object({
+      count: z.boolean().default(true),
+      latest: z.boolean().default(true),
+    })
+    .default({ count: true, latest: true }),
+});
+
 export const CardConfig = z.discriminatedUnion('type', [
   VisitCounterConfig,
   ProfileStatsConfig,
@@ -101,6 +111,7 @@ export const CardConfig = z.discriminatedUnion('type', [
   ProfileSummaryConfig,
   LanguagesConfig,
   TopReposConfig,
+  GistCounterConfig,
 ]);
 
 export type CardConfig = z.infer<typeof CardConfig>;
@@ -111,3 +122,4 @@ export type StreakConfig = z.infer<typeof StreakConfig>;
 export type ProfileSummaryConfig = z.infer<typeof ProfileSummaryConfig>;
 export type LanguagesConfig = z.infer<typeof LanguagesConfig>;
 export type TopReposConfig = z.infer<typeof TopReposConfig>;
+export type GistCounterConfig = z.infer<typeof GistCounterConfig>;

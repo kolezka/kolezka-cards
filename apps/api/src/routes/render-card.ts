@@ -1,5 +1,6 @@
 import { type DB, schema } from '@kc/db';
 import { computeFingerprint } from '@kc/shared/fingerprint';
+import { renderGistCounter } from '@kc/shared/svg/gist-counter';
 import { renderLanguages } from '@kc/shared/svg/languages';
 import { renderProfileStats } from '@kc/shared/svg/profile-stats';
 import { renderProfileSummary } from '@kc/shared/svg/profile-summary';
@@ -9,6 +10,7 @@ import { renderTopRepos } from '@kc/shared/svg/top-repos';
 import { renderVisitCounter } from '@kc/shared/svg/visit-counter';
 import {
   CardConfig,
+  GistCounterConfig,
   LanguagesConfig,
   ProfileStatsConfig,
   ProfileSummaryConfig,
@@ -341,6 +343,43 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
           svg = renderTopRepos(
             parsed,
             { login: row.ownerLogin, repos: topRepos },
+            pickDims(parsed, query),
+          );
+          break;
+        }
+        case 'gist-counter': {
+          const merged = applyQueryOverrides(config, query);
+          const parsed = GistCounterConfig.parse(merged);
+          const user = await github.getUser(row.ownerLogin);
+          if (!user) return c.text('GitHub user not found', 404);
+          let latest: { description: string | null; updatedAt: string | null } | null = null;
+          if (parsed.show.latest) {
+            const gistsRes = await fetch(
+              `https://api.github.com/users/${encodeURIComponent(row.ownerLogin)}/gists?per_page=1`,
+              {
+                headers: { 'User-Agent': 'kolezka-cards', Accept: 'application/vnd.github+json' },
+              },
+            );
+            if (gistsRes.ok) {
+              const arr = (await gistsRes.json()) as Array<{
+                description: string | null;
+                updated_at: string | null;
+              }>;
+              if (arr.length > 0 && arr[0]) {
+                latest = {
+                  description: arr[0].description,
+                  updatedAt: arr[0].updated_at,
+                };
+              }
+            }
+          }
+          svg = renderGistCounter(
+            parsed,
+            {
+              login: row.ownerLogin,
+              publicGists: user.public_gists ?? 0,
+              latestGist: latest,
+            },
             pickDims(parsed, query),
           );
           break;

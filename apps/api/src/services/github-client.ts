@@ -3,6 +3,7 @@ export interface GitHubUser {
   login: string;
   avatar_url: string | null;
   public_repos: number;
+  public_gists: number;
   followers: number;
   following: number;
   created_at: string | null;
