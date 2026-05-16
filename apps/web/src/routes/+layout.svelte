@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api, type Me } from '$lib/api';
-  import { Logo } from '$lib/ui';
+  import { Logo, UserMenu } from '$lib/ui';
   import '$lib/styles/tokens.css';
 
   let { children } = $props();
@@ -14,12 +14,9 @@
       me = null;
     }
   }
-  async function logout() {
-    await api.logout();
-    me = null;
-    location.href = '/';
-  }
   onMount(loadMe);
+
+  const year = new Date().getUTCFullYear();
 </script>
 
 <header>
@@ -27,12 +24,8 @@
     <Logo size={28} />
   </a>
   <nav>
-    <a class="nav-link nav-secondary" href="/methodology">methodology</a>
-    <a class="nav-link nav-secondary" href="/privacy">privacy</a>
     {#if me}
-      <a class="nav-link" href="/app">cards</a>
-      <span class="login">@{me.login}</span>
-      <button type="button" onclick={logout}>logout</button>
+      <UserMenu {me} />
     {:else if me === null}
       <a class="btn" href="/auth/github">login</a>
     {:else}
@@ -44,6 +37,15 @@
 <main>
   {@render children?.()}
 </main>
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <span class="copy">© {year} kolezka-cards</span>
+    <nav class="footer-nav" aria-label="Footer">
+      <a href="/privacy">Privacy Policy</a>
+    </nav>
+  </div>
+</footer>
 
 <style>
   :global(body) {
@@ -84,18 +86,43 @@
     nav {
       gap: 2px;
     }
-    .nav-link {
-      padding: 6px 10px;
-      font-size: 13px;
-    }
-    /* Hide secondary nav (methodology / privacy) when space is tight —
-       they're still reachable from the footer-style links in long-form
-       page bodies. Primary nav (cards / login / logout) stays. */
-    .nav-secondary {
-      display: none;
-    }
     .login {
       display: none;
+    }
+  }
+
+  .site-footer {
+    margin-top: 64px;
+    border-top: 1px solid var(--ring-soft);
+    padding: 20px 0 calc(20px + env(safe-area-inset-bottom));
+  }
+  .footer-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    color: var(--text-3);
+    font-size: 13px;
+  }
+  .footer-nav {
+    display: flex;
+    gap: 18px;
+  }
+  .footer-nav a {
+    color: var(--text-2);
+    text-decoration: none;
+    transition: color var(--dur-fast) var(--ease-glass);
+  }
+  .footer-nav a:hover {
+    color: var(--text-1);
+  }
+  @media (max-width: 520px) {
+    .footer-inner {
+      padding: 0 14px;
     }
   }
   .brand {
@@ -123,19 +150,6 @@
     min-width: 0;
     flex-wrap: nowrap;
   }
-  .nav-link {
-    color: var(--text-2);
-    text-decoration: none;
-    padding: 6px 12px;
-    border-radius: var(--radius-pill);
-    white-space: nowrap;
-    transition: color var(--dur-fast) var(--ease-glass),
-      background var(--dur-fast) var(--ease-glass);
-  }
-  .nav-link:hover {
-    color: var(--text-1);
-    background: var(--glass-3);
-  }
   .btn {
     background: var(--accent);
     color: var(--text-on-accent);
@@ -151,19 +165,6 @@
     color: var(--text-3);
     padding: 0 8px;
     font-size: 13px;
-  }
-  button {
-    background: var(--glass-3);
-    color: var(--text-1);
-    border: 1px solid var(--ring-soft);
-    border-radius: var(--radius-pill);
-    padding: 5px 12px;
-    font: inherit;
-    cursor: pointer;
-    transition: background var(--dur-fast) var(--ease-glass);
-  }
-  button:hover {
-    background: var(--glass-4);
   }
   main {
     max-width: 1100px;

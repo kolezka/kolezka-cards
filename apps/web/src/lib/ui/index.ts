@@ -5,3 +5,4 @@ export { default as GlassSelect } from './GlassSelect.svelte';
 export { default as GlassToggle } from './GlassToggle.svelte';
 export { default as Stat } from './Stat.svelte';
 export { default as Logo } from './Logo.svelte';
+export { default as UserMenu } from './UserMenu.svelte';
