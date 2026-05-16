@@ -40,12 +40,25 @@ import {
 } from '../services/github-client';
 import { computeStreakStats, fetchContributions } from '../services/github-contributions';
 import { bumpCounter } from '../services/metrics';
-import { trackVisit } from '../services/visit-tracker';
+import { getVisitTotals, trackVisit } from '../services/visit-tracker';
 
 function extractReferrerHost(referer: string | undefined): string | null {
   if (!referer) return null;
   try {
     return new URL(referer).host;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Hosts whose Referer should NOT count as a card visit. By default this is
+ * the app's own origin from BASE_URL — owner previews in /app/c/[id] or the
+ * landing/demo pages embed the same SVGs and would otherwise inflate metrics.
+ */
+function selfTrafficHost(baseUrl: string): string | null {
+  try {
+    return new URL(baseUrl).host || null;
   } catch {
     return null;
   }
@@ -107,6 +120,9 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
   const app = new Hono();
   app.use('*', noCache);
 
+  // Computed once at startup so we don't re-parse BASE_URL on every render.
+  const selfHost = selfTrafficHost(env.BASE_URL);
+
   app.get('/c/:userLogin/:slugWithExt', async (c) => {
     const start = Date.now();
     const { userLogin, slugWithExt } = c.req.param();
@@ -143,13 +159,21 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
       env.APP_SECRET,
     );
 
-    const visit = trackVisit(db, {
-      cardId: card.id,
-      fingerprintHash: fingerprint,
-      country: headers['cf-ipcountry'] ?? null,
-      referrerHost: extractReferrerHost(headers.referer),
-      userAgentFamily: userAgentFamily(headers['user-agent']),
-    });
+    const refererHost = extractReferrerHost(headers.referer);
+    const isSelfTraffic = selfHost !== null && refererHost === selfHost;
+
+    // Self-traffic (e.g. owner previewing in /app/c/[id]) reads the current
+    // totals without bumping any counters so it can render the visit-counter
+    // card correctly without inflating analytics.
+    const visit = isSelfTraffic
+      ? { wasUnique: false, ...getVisitTotals(db, card.id) }
+      : trackVisit(db, {
+          cardId: card.id,
+          fingerprintHash: fingerprint,
+          country: headers['cf-ipcountry'] ?? null,
+          referrerHost: refererHost,
+          userAgentFamily: userAgentFamily(headers['user-agent']),
+        });
 
     let svg: string;
     try {
@@ -473,15 +497,20 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
         cardId: card.id,
         type: config.type,
         wasUnique: visit.wasUnique,
+        selfTraffic: isSelfTraffic,
         country: headers['cf-ipcountry'] ?? null,
         latencyMs: Date.now() - start,
         uaHash: hashForLog(headers['user-agent']),
       },
       'render',
     );
-    bumpCounter('render.total');
-    bumpCounter('render.by_type', 1, { type: config.type });
-    if (visit.wasUnique) bumpCounter('render.unique');
+    if (isSelfTraffic) {
+      bumpCounter('render.self_traffic');
+    } else {
+      bumpCounter('render.total');
+      bumpCounter('render.by_type', 1, { type: config.type });
+      if (visit.wasUnique) bumpCounter('render.unique');
+    }
 
     c.header('Content-Type', 'image/svg+xml; charset=utf-8');
     return c.body(svg);

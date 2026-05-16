@@ -107,3 +107,24 @@ export function trackVisit(db: DB, input: VisitInput): VisitResult {
     uniqueVisits: Number(totals?.uniqueVisits ?? 0),
   };
 }
+
+// Read-only totals for a card. Used when we want the visit-counter card
+// to still render the right numbers for self-traffic we don't want to
+// track (e.g. owner previewing in the dashboard).
+export function getVisitTotals(
+  db: DB,
+  cardId: string,
+): { totalImpressions: number; uniqueVisits: number } {
+  const totals = db
+    .select({
+      totalImpressions: sql<number>`COALESCE(SUM(${schema.impressionBuckets.totalImpressions}), 0)`,
+      uniqueVisits: sql<number>`COALESCE(SUM(${schema.impressionBuckets.uniqueVisits}), 0)`,
+    })
+    .from(schema.impressionBuckets)
+    .where(eq(schema.impressionBuckets.cardId, cardId))
+    .get();
+  return {
+    totalImpressions: Number(totals?.totalImpressions ?? 0),
+    uniqueVisits: Number(totals?.uniqueVisits ?? 0),
+  };
+}

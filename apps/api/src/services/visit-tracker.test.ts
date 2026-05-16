@@ -7,7 +7,7 @@ import * as schema from '@kc/db/schema';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import { nanoid } from 'nanoid';
-import { trackVisit } from './visit-tracker';
+import { getVisitTotals, trackVisit } from './visit-tracker';
 
 const TEST_DB = resolve(import.meta.dir, '../../.tmp/visit-tracker.test.db');
 
@@ -106,5 +106,23 @@ describe('trackVisit', () => {
       userAgentFamily: null,
     });
     expect(r2.wasUnique).toBe(true);
+  });
+});
+
+describe('getVisitTotals', () => {
+  it('returns current totals without mutating any counters', () => {
+    const before = getVisitTotals(db, cardId);
+    expect(before.totalImpressions).toBeGreaterThan(0);
+
+    // Calling again must produce the exact same numbers — no side effects.
+    const after = getVisitTotals(db, cardId);
+    expect(after).toEqual(before);
+  });
+
+  it('returns zeros for an unknown cardId', () => {
+    expect(getVisitTotals(db, 'nope-no-such-card')).toEqual({
+      totalImpressions: 0,
+      uniqueVisits: 0,
+    });
   });
 });
