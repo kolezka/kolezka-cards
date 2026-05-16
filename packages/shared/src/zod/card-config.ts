@@ -81,12 +81,19 @@ export const ProfileSummaryConfig = CardBase.extend({
     .default({ contributions: true, repos: true, joined: true, chart: true }),
 });
 
+export const LanguagesConfig = CardBase.extend({
+  type: z.literal('languages'),
+  limit: z.number().int().min(3).max(15).default(8),
+  style: z.enum(['bar', 'donut']).default('bar'),
+});
+
 export const CardConfig = z.discriminatedUnion('type', [
   VisitCounterConfig,
   ProfileStatsConfig,
   RepoStatsConfig,
   StreakConfig,
   ProfileSummaryConfig,
+  LanguagesConfig,
 ]);
 
 export type CardConfig = z.infer<typeof CardConfig>;
@@ -95,3 +102,4 @@ export type ProfileStatsConfig = z.infer<typeof ProfileStatsConfig>;
 export type RepoStatsConfig = z.infer<typeof RepoStatsConfig>;
 export type StreakConfig = z.infer<typeof StreakConfig>;
 export type ProfileSummaryConfig = z.infer<typeof ProfileSummaryConfig>;
+export type LanguagesConfig = z.infer<typeof LanguagesConfig>;

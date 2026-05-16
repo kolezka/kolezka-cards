@@ -11,5 +11,10 @@ export {
   type ProfileSummaryData,
   type ContributionPoint,
 } from './svg/profile-summary';
+export {
+  renderLanguages,
+  type LanguagesData,
+  type LanguageEntry,
+} from './svg/languages';
 export * from './zod/card-config';
 export * from './zod/query-overrides';

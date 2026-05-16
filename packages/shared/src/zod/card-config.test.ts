@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'bun:test';
-import { CardConfig, ProfileSummaryConfig, VisitCounterConfig } from './card-config';
+import {
+  CardConfig,
+  LanguagesConfig,
+  ProfileSummaryConfig,
+  VisitCounterConfig,
+} from './card-config';
 
 describe('CardSize on CardBase', () => {
   it('accepts width and height within bounds on every card type', () => {
@@ -121,5 +126,38 @@ describe('ProfileSummaryConfig period', () => {
       period: { days: 45.5 },
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('LanguagesConfig', () => {
+  it('defaults limit to 8 and style to bar', () => {
+    const cfg = LanguagesConfig.parse({ type: 'languages' });
+    expect(cfg.limit).toBe(8);
+    expect(cfg.style).toBe('bar');
+  });
+
+  it('accepts donut style', () => {
+    const cfg = LanguagesConfig.parse({ type: 'languages', style: 'donut' });
+    expect(cfg.style).toBe('donut');
+  });
+
+  it('rejects limit below 3', () => {
+    const r = LanguagesConfig.safeParse({ type: 'languages', limit: 2 });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects limit above 15', () => {
+    const r = LanguagesConfig.safeParse({ type: 'languages', limit: 20 });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects unknown style', () => {
+    const r = LanguagesConfig.safeParse({ type: 'languages', style: 'pie' });
+    expect(r.success).toBe(false);
+  });
+
+  it('parses through the discriminated CardConfig union', () => {
+    const cfg = CardConfig.parse({ type: 'languages', limit: 5, style: 'donut' });
+    expect(cfg.type).toBe('languages');
   });
 });

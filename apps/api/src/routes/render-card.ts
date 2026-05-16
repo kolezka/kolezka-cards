@@ -1,5 +1,6 @@
 import { type DB, schema } from '@kc/db';
 import { computeFingerprint } from '@kc/shared/fingerprint';
+import { renderLanguages } from '@kc/shared/svg/languages';
 import { renderProfileStats } from '@kc/shared/svg/profile-stats';
 import { renderProfileSummary } from '@kc/shared/svg/profile-summary';
 import { renderRepoStats } from '@kc/shared/svg/repo-stats';
@@ -7,6 +8,7 @@ import { renderStreak } from '@kc/shared/svg/streak';
 import { renderVisitCounter } from '@kc/shared/svg/visit-counter';
 import {
   CardConfig,
+  LanguagesConfig,
   ProfileStatsConfig,
   ProfileSummaryConfig,
   RepoStatsConfig,
@@ -256,6 +258,32 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
               ...pickDims(parsed, query),
               ...(periodOverride ? { period: periodOverride } : {}),
             },
+          );
+          break;
+        }
+        case 'languages': {
+          const merged = applyQueryOverrides(config, query);
+          const parsed = LanguagesConfig.parse(merged);
+          const reposRes = await fetch(
+            `https://api.github.com/users/${encodeURIComponent(row.ownerLogin)}/repos?per_page=100&sort=pushed`,
+            { headers: { 'User-Agent': 'kolezka-cards', Accept: 'application/vnd.github+json' } },
+          );
+          const agg: Record<string, number> = {};
+          if (reposRes.ok) {
+            const repos = (await reposRes.json()) as Array<{
+              language: string | null;
+              size: number;
+            }>;
+            for (const r of repos) {
+              if (!r.language) continue;
+              agg[r.language] = (agg[r.language] ?? 0) + (r.size || 1);
+            }
+          }
+          const languages = Object.entries(agg).map(([name, bytes]) => ({ name, bytes }));
+          svg = renderLanguages(
+            parsed,
+            { login: row.ownerLogin, languages },
+            pickDims(parsed, query),
           );
           break;
         }
