@@ -27,6 +27,16 @@ export interface AnalyticsResult {
   heatmap: number[][];
 }
 
+export class ApiError extends Error {
+  status: number;
+  code: string | null;
+  constructor(status: number, code: string | null, message: string) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T | null> {
   const res = await fetch(path, {
     ...init,
@@ -39,8 +49,15 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T | nul
   });
   if (res.status === 401) return null;
   if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`${res.status} ${res.statusText}: ${body}`);
+    const raw = await res.text().catch(() => '');
+    let code: string | null = null;
+    try {
+      const parsed = JSON.parse(raw) as { error?: string };
+      if (typeof parsed.error === 'string') code = parsed.error;
+    } catch {
+      // not JSON — leave code null
+    }
+    throw new ApiError(res.status, code, `${res.status} ${res.statusText}: ${raw}`);
   }
   if (res.status === 204) return null;
   return (await res.json()) as T;
