@@ -24,7 +24,7 @@
   <img alt="SQLite" src="https://img.shields.io/badge/bun:sqlite-WAL-003b57?logo=sqlite&logoColor=fff" />
   <img alt="Drizzle" src="https://img.shields.io/badge/Drizzle-ORM-c5f74f" />
   <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-✓-7c3aed" />
-  <img alt="License" src="https://img.shields.io/badge/license-private-blue" />
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-blue" />
 </p>
 
 ---
@@ -172,55 +172,11 @@ GitHub proxies every README image through `camo.githubusercontent.com`. The rend
 - UPSERTs the per-hour `ImpressionBucket` on every render.
 - **Self-traffic** (Referer matches `BASE_URL` host) skips `trackVisit` entirely and reads totals via a read-only path so owner previews don't inflate metrics.
 
-### Rate limiting
-
-Per-IP token bucket on `/c/*`: 600 req/min hard cap, 429 + `Retry-After` on exhaustion, WARN log on every reject. Idle buckets swept every 5 min. IP comes from `CF-Connecting-IP` (then `X-Forwarded-For`, then `unknown`).
-
-### CSRF
-
-Custom guard on `/api/*` mutations: `Origin` must match `BASE_URL` AND `X-Requested-By: web` must be present. Cookies are `httpOnly`, `secure` in prod, `sameSite=lax`.
-
 ### Observability
 
 - **Pino JSON logs**: one line per render with `cardId, type, wasUnique, selfTraffic, country, latencyMs, uaHash`. UAs are hashed before logging — no raw UA strings in logs anywhere.
 - **`GET /metrics`** returns JSON counters: `render.total`, `render.unique`, `render.by_type{type=…}`, `render.self_traffic`, `oauth.success`, `rate_limit.rejected`, `errors.unhandled`, plus process `uptimeSec` and `rssBytes`.
 - **Sentry** (optional) wires unhandled errors via lazy `@sentry/node`.
-
-### UI 2.0 — Apple liquid glass
-
-The dashboard runs an Apple-style liquid-glass design system layered on a four-tier translucent surface ramp with `backdrop-filter` blur + saturate, oklch color tokens, and motion via a single shared cubic-bezier. Dark default; light variant under `html.theme-light`. Backdrop-filter fallback via `@supports` for older browsers, 44px touch-target floor on coarse pointers, `prefers-reduced-motion` and `prefers-contrast: more` respected. Reusable primitives in `apps/web/src/lib/ui/` (`Glass`, `GlassButton`, `GlassInput`, `GlassSelect`, `GlassToggle`, `Stat`, `Logo`, `UserMenu`).
-
-## Local Docker (prod-parity smoke)
-
-Build the production image and run on `:3000` with a SQLite volume — same shape Coolify deploys:
-
-```sh
-cp .env.example .env   # set APP_SECRET, BASE_URL=http://localhost:3000
-docker compose up -d --build
-curl -i http://localhost:3000/healthz
-docker compose logs -f app
-docker compose down -v
-```
-
-The container runs `bun apps/api/src/index.ts` on boot. `runStartupMigrations` runs before opening any request-serving connection; `db.migrate` event reports `applied`, `total`, `latestHash`. On migrate failure the API logs `db.migrate.failed` at fatal and exits non-zero so the orchestrator restarts the container instead of serving a stale schema.
-
-### Containerized dev (optional, slower)
-
-```sh
-docker compose -f docker-compose.dev.yml up
-open http://localhost:5173
-```
-
-Bind-mounts source for hot reload, isolates `node_modules` in a named volume. Spec-preferred dev remains `bun run dev` on the host.
-
-## Coolify deploy
-
-1. Push to `kolezka/kolezka-cards`.
-2. New "Dockerfile" application → build context `repo root`, Dockerfile path `docker/Dockerfile`.
-3. Mount a persistent volume at `/data` for the SQLite database.
-4. Env (minimum): `APP_SECRET`, `BASE_URL`, `DATABASE_PATH=/data/app.db`, `NODE_ENV=production`. Add `GITHUB_CLIENT_ID/SECRET` once the OAuth app is registered.
-5. Expose port 3000 behind Coolify's reverse proxy / Cloudflare Tunnel.
-6. CI guard: `.github/workflows/ci.yml` runs `drizzle-kit check` + `drizzle-kit generate` + `git diff --exit-code` so any PR that edits `schema.ts` without committing the matching migration fails before merge.
 
 ## Project layout
 
@@ -241,4 +197,6 @@ Bind-mounts source for hot reload, isolates `node_modules` in a named volume. Sp
 
 ## License
 
-Private. Self-hosted by [@kolezka](https://github.com/kolezka). Data controller for the live deployment: [Mariusz Rakus](mailto:mariusz@raqz.pl).
+[MIT](./LICENSE) © 2026 [Mariusz Rakus](mailto:mariusz@raqz.pl).
+
+Data controller for the live deployment at <https://ghcards.raqz.link>: Mariusz Rakus — see [Privacy Policy](https://ghcards.raqz.link/privacy).
