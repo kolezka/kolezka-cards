@@ -213,8 +213,19 @@ describe('WakatimeConfig', () => {
     expect(cfg.limit).toBe(6);
   });
 
-  it('rejects an apiKey that is too short', () => {
-    const r = CardConfig.safeParse({ type: 'wakatime', apiKey: 'short' });
+  it('accepts an empty apiKey (card can be created before user has a token; endpoint renders empty state)', () => {
+    const r = CardConfig.safeParse({ type: 'wakatime', apiKey: '' });
+    expect(r.success).toBe(true);
+  });
+
+  it('defaults apiKey to empty when omitted', () => {
+    const cfg = CardConfig.parse({ type: 'wakatime' });
+    if (cfg.type !== 'wakatime') throw new Error('union narrowing');
+    expect(cfg.apiKey).toBe('');
+  });
+
+  it('rejects an apiKey longer than 200 chars', () => {
+    const r = CardConfig.safeParse({ type: 'wakatime', apiKey: 'a'.repeat(201) });
     expect(r.success).toBe(false);
   });
 

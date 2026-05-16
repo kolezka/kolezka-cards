@@ -408,6 +408,16 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
         case 'wakatime': {
           const merged = applyQueryOverrides(config, query);
           const parsed = WakatimeConfig.parse(merged);
+          // No (or stub) API key → render empty state without ever contacting
+          // Wakatime. min length 20 is the floor for a plausibly-real token.
+          if (!parsed.apiKey || parsed.apiKey.length < 20) {
+            svg = renderWakatime(
+              parsed,
+              { login: row.ownerLogin, totalSeconds: 0, languages: [] },
+              pickDims(parsed, query),
+            );
+            break;
+          }
           // Wakatime "stats" endpoint provides aggregated language breakdown
           // for the chosen range with grand_total. https://wakatime.com/developers
           const url = `https://wakatime.com/api/v1/users/current/stats/${encodeURIComponent(parsed.range)}`;

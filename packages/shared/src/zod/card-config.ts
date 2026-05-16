@@ -112,9 +112,14 @@ export const FollowersSparklineConfig = CardBase.extend({
 // TODO: encrypt at rest using APP_SECRET-derived key (AES-256-GCM).
 // Acceptable for v1 in a self-hosted single-tenant deployment; not for
 // multi-tenant SaaS.
+//
+// apiKey is allowed to be empty at the schema level so cards can be created
+// before the user has obtained a Wakatime token. The endpoint treats an
+// empty/short value as "not configured" and renders the empty state instead
+// of calling the Wakatime API.
 export const WakatimeConfig = CardBase.extend({
   type: z.literal('wakatime'),
-  apiKey: z.string().min(20).max(200),
+  apiKey: z.string().max(200).default(''),
   range: z
     .enum(['last_7_days', 'last_30_days', 'last_6_months', 'last_year'])
     .default('last_7_days'),
