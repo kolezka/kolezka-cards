@@ -1,5 +1,19 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { api, type Me } from '$lib/api';
   import { Glass, GlassButton } from '$lib/ui';
+
+  // null = anonymous; undefined = still loading. We optimistically render the
+  // login CTA while loading so the hero never flashes "open dashboard" then
+  // collapses back; once we know the user is logged in we swap the CTA.
+  let me = $state<Me | null | undefined>(undefined);
+  onMount(async () => {
+    try {
+      me = await api.me();
+    } catch {
+      me = null;
+    }
+  });
 
   let copied = $state(false);
   const example = `![visits](https://kolezka-cards.example.com/c/yourname/profile.svg)`;
@@ -51,9 +65,13 @@
     Camo. Self-hosted, fast, beautiful.
   </p>
   <div class="cta-row">
-    <GlassButton variant="primary" size="lg" href="/auth/github">
-      Sign in with GitHub
-    </GlassButton>
+    {#if me}
+      <GlassButton variant="primary" size="lg" href="/app">Open dashboard</GlassButton>
+    {:else}
+      <GlassButton variant="primary" size="lg" href="/auth/github">
+        Sign in with GitHub
+      </GlassButton>
+    {/if}
     <GlassButton variant="secondary" size="lg" href="/dev">Live demo</GlassButton>
   </div>
 </section>
@@ -124,6 +142,21 @@
     gap: 12px;
     justify-content: center;
     flex-wrap: wrap;
+  }
+  @media (max-width: 520px) {
+    .hero {
+      padding: 40px 0 36px;
+    }
+    .cta-row {
+      gap: 8px;
+    }
+    /* Shrink the hero CTA buttons on phones. Touch-target floor (44px min-height
+       from tokens.css :coarse pointer rule) still applies, so we only trim the
+       inline padding/font without breaking accessibility. */
+    .cta-row :global(.btn.s-lg) {
+      padding: 9px 16px;
+      font-size: 14px;
+    }
   }
 
   .features {

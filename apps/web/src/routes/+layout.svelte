@@ -74,10 +74,16 @@
   }
   @media (max-width: 640px) {
     header {
+      /* On mobile the pill spans the full viewport: logo flush-left,
+         user menu / login button flush-right, justified to the edges. */
       top: 8px;
+      width: auto;
+      max-width: none;
       margin: 8px 8px 0;
-      padding: 6px 10px;
+      padding: 6px 12px;
       gap: 8px;
+      display: flex;
+      justify-content: space-between;
     }
     .brand {
       width: 36px;
