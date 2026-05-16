@@ -54,12 +54,14 @@
     position: sticky;
     top: 12px;
     z-index: 50;
-    max-width: 1100px;
+    /* Pill hugs its contents (logo + nav). Capped so it never overflows
+       the viewport on small screens. Centered via auto margins. */
+    width: fit-content;
+    max-width: calc(100% - 24px);
     margin: 12px auto 0;
-    padding: 8px 14px;
-    display: flex;
+    padding: 6px 10px 6px 12px;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
     gap: 10px;
     background: var(--glass-2);
     border: 1px solid var(--ring-soft);
