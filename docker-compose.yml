@@ -13,12 +13,18 @@ services:
       BASE_URL: ${BASE_URL:-https://cards.example.com}
       NODE_ENV: production
       PORT: '3000'
-      DATABASE_PATH: /data/app.db
+      # Either inject DATABASE_URL directly (Coolify's preferred form) or
+      # provide the POSTGRES_* bundle below and let the app compose the URL.
+      DATABASE_URL: ${DATABASE_URL}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
       WEB_BUILD_DIR: /app/apps/web/build
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
-    volumes:
-      - app-data:/data
+      ADMIN_LOGINS: ${ADMIN_LOGINS}
     healthcheck:
       test:
         - CMD
@@ -29,6 +35,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
-
-volumes:
-  app-data:

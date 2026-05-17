@@ -1,55 +1,55 @@
+import { loadEnv, resolveDatabaseUrl } from '@kc/shared/env';
 import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { createClient } from './client';
 import { runStartupMigrations } from './run-migrations';
 import { cards, users } from './schema';
 
-const databasePath = process.env.DATABASE_PATH ?? './data/app.db';
-runStartupMigrations(databasePath);
-const { db, sqlite } = createClient(databasePath);
+const env = loadEnv();
+const databaseUrl = resolveDatabaseUrl(env);
+await runStartupMigrations(databaseUrl);
+const { db, sql: client } = createClient(databaseUrl);
 
-function upsertUser(githubId: number, login: string): string {
-  const existing = db
+async function upsertUser(githubId: number, login: string): Promise<string> {
+  const existing = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.githubId, githubId))
-    .all();
+    .where(eq(users.githubId, githubId));
   if (existing.length > 0) {
     console.log(`Seed user already exists: ${login} (${existing[0]!.id})`);
     return existing[0]!.id;
   }
   const id = nanoid(16);
-  db.insert(users).values({ id, githubId, login, avatarUrl: null }).run();
+  await db.insert(users).values({ id, githubId, login, avatarUrl: null });
   console.log(`Created seed user: ${login} (${id})`);
   return id;
 }
 
-function upsertCard(
+async function upsertCard(
   userId: string,
   slug: string,
   type: string,
   theme: string,
   configJson: Record<string, unknown>,
   ownerLogin: string,
-): string {
-  const existingCard = db
+): Promise<string> {
+  const existingCard = await db
     .select({ id: cards.id })
     .from(cards)
-    .where(and(eq(cards.userId, userId), eq(cards.slug, slug)))
-    .all();
+    .where(and(eq(cards.userId, userId), eq(cards.slug, slug)));
   if (existingCard.length > 0) {
     console.log(`Seed card already exists: ${ownerLogin}/${slug} (${existingCard[0]!.id})`);
     return existingCard[0]!.id;
   }
   const id = nanoid(12);
-  db.insert(cards).values({ id, userId, slug, type, theme, configJson }).run();
+  await db.insert(cards).values({ id, userId, slug, type, theme, configJson });
   console.log(`Created seed card: ${ownerLogin}/${slug} (${id})`);
   return id;
 }
 
 // Dev user (no real GitHub identity — used for the visit-counter demo)
-const testUserId = upsertUser(999_001, 'testuser');
-upsertCard(
+const testUserId = await upsertUser(999_001, 'testuser');
+await upsertCard(
   testUserId,
   'counter',
   'visit-counter',
@@ -64,8 +64,8 @@ upsertCard(
 );
 
 // Real GitHub user — profile-stats hits the public GitHub API by `users.login`.
-const octocatId = upsertUser(583_231, 'octocat');
-upsertCard(
+const octocatId = await upsertUser(583_231, 'octocat');
+await upsertCard(
   octocatId,
   'profile',
   'profile-stats',
@@ -73,7 +73,7 @@ upsertCard(
   { type: 'profile-stats', theme: 'github_dark', show: { languages: true, commitGraph: false } },
   'octocat',
 );
-upsertCard(
+await upsertCard(
   octocatId,
   'hello',
   'repo-stats',
@@ -81,7 +81,7 @@ upsertCard(
   { type: 'repo-stats', theme: 'github_dark', repo: 'octocat/Hello-World' },
   'octocat',
 );
-upsertCard(
+await upsertCard(
   octocatId,
   'streak',
   'streak',
@@ -89,7 +89,7 @@ upsertCard(
   { type: 'streak', theme: 'github_dark' },
   'octocat',
 );
-upsertCard(
+await upsertCard(
   octocatId,
   'summary',
   'profile-summary',
@@ -102,7 +102,7 @@ upsertCard(
   'octocat',
 );
 
-sqlite.close();
+await client.end({ timeout: 5 });
 console.log(`
 Try the seeded cards:
   curl -sS 'http://localhost:3001/c/testuser/counter.svg' | head -1

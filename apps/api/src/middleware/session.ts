@@ -15,10 +15,10 @@ export function requireSession(db: DB, env: Env): MiddlewareHandler<SessionConte
   return async (c, next) => {
     const sid = readSessionCookie(c);
     if (!sid) return c.json({ error: 'unauthenticated' }, 401);
-    const loaded = loadSession(db, sid);
+    const loaded = await loadSession(db, sid);
     if (!loaded) return c.json({ error: 'unauthenticated' }, 401);
 
-    const refreshed = refreshSessionIfStale(db, sid);
+    const refreshed = await refreshSessionIfStale(db, sid);
     if (refreshed) {
       refreshSessionCookieExpiry(c, env, sid, refreshed.expiresAt);
     }

@@ -44,9 +44,9 @@ export function createCardsRoute(db: DB, env: Env): Hono<SessionContext> {
   app.use('/api/cards', requireSession(db, env));
   app.use('/api/cards/*', requireSession(db, env));
 
-  app.get('/api/cards', (c) => {
+  app.get('/api/cards', async (c) => {
     const user = c.get('user');
-    const rows = db.select().from(schema.cards).where(eq(schema.cards.userId, user.id)).all();
+    const rows = await db.select().from(schema.cards).where(eq(schema.cards.userId, user.id));
     return c.json(rows.map((r) => publicCard(r, user.login)));
   });
 
@@ -57,35 +57,37 @@ export function createCardsRoute(db: DB, env: Env): Hono<SessionContext> {
     if (!parsed.success) {
       return c.json({ error: 'invalid_body', issues: parsed.error.flatten() }, 400);
     }
-    const dup = db
-      .select({ id: schema.cards.id })
-      .from(schema.cards)
-      .where(and(eq(schema.cards.userId, user.id), eq(schema.cards.slug, parsed.data.slug)))
-      .get();
+    const dup = (
+      await db
+        .select({ id: schema.cards.id })
+        .from(schema.cards)
+        .where(and(eq(schema.cards.userId, user.id), eq(schema.cards.slug, parsed.data.slug)))
+        .limit(1)
+    )[0];
     if (dup) return c.json({ error: 'slug_taken' }, 409);
 
     const id = nanoid(12);
-    db.insert(schema.cards)
-      .values({
-        id,
-        userId: user.id,
-        slug: parsed.data.slug,
-        type: parsed.data.config.type,
-        theme: (parsed.data.config as { theme?: string }).theme ?? 'github_dark',
-        configJson: parsed.data.config,
-      })
-      .run();
-    const card = db.select().from(schema.cards).where(eq(schema.cards.id, id)).get()!;
+    await db.insert(schema.cards).values({
+      id,
+      userId: user.id,
+      slug: parsed.data.slug,
+      type: parsed.data.config.type,
+      theme: (parsed.data.config as { theme?: string }).theme ?? 'github_dark',
+      configJson: parsed.data.config,
+    });
+    const card = (await db.select().from(schema.cards).where(eq(schema.cards.id, id)).limit(1))[0]!;
     return c.json(publicCard(card, user.login), 201);
   });
 
-  app.get('/api/cards/:id', (c) => {
+  app.get('/api/cards/:id', async (c) => {
     const user = c.get('user');
-    const card = db
-      .select()
-      .from(schema.cards)
-      .where(and(eq(schema.cards.id, c.req.param('id')), eq(schema.cards.userId, user.id)))
-      .get();
+    const card = (
+      await db
+        .select()
+        .from(schema.cards)
+        .where(and(eq(schema.cards.id, c.req.param('id')), eq(schema.cards.userId, user.id)))
+        .limit(1)
+    )[0];
     if (!card) return c.json({ error: 'not_found' }, 404);
     return c.json(publicCard(card, user.login));
   });
@@ -93,11 +95,13 @@ export function createCardsRoute(db: DB, env: Env): Hono<SessionContext> {
   app.patch('/api/cards/:id', async (c) => {
     const user = c.get('user');
     const id = c.req.param('id');
-    const card = db
-      .select()
-      .from(schema.cards)
-      .where(and(eq(schema.cards.id, id), eq(schema.cards.userId, user.id)))
-      .get();
+    const card = (
+      await db
+        .select()
+        .from(schema.cards)
+        .where(and(eq(schema.cards.id, id), eq(schema.cards.userId, user.id)))
+        .limit(1)
+    )[0];
     if (!card) return c.json({ error: 'not_found' }, 404);
 
     const body = await c.req.json().catch(() => null);
@@ -106,15 +110,18 @@ export function createCardsRoute(db: DB, env: Env): Hono<SessionContext> {
       return c.json({ error: 'invalid_body', issues: parsed.error.flatten() }, 400);
     }
     if (parsed.data.slug && parsed.data.slug !== card.slug) {
-      const dup = db
-        .select({ id: schema.cards.id })
-        .from(schema.cards)
-        .where(and(eq(schema.cards.userId, user.id), eq(schema.cards.slug, parsed.data.slug)))
-        .get();
+      const dup = (
+        await db
+          .select({ id: schema.cards.id })
+          .from(schema.cards)
+          .where(and(eq(schema.cards.userId, user.id), eq(schema.cards.slug, parsed.data.slug)))
+          .limit(1)
+      )[0];
       if (dup) return c.json({ error: 'slug_taken' }, 409);
     }
 
-    db.update(schema.cards)
+    await db
+      .update(schema.cards)
       .set({
         slug: parsed.data.slug ?? card.slug,
         type: parsed.data.config?.type ?? card.type,
@@ -122,22 +129,25 @@ export function createCardsRoute(db: DB, env: Env): Hono<SessionContext> {
         configJson: parsed.data.config ?? card.configJson,
         updatedAt: new Date(),
       })
-      .where(eq(schema.cards.id, id))
-      .run();
-    const updated = db.select().from(schema.cards).where(eq(schema.cards.id, id)).get()!;
+      .where(eq(schema.cards.id, id));
+    const updated = (
+      await db.select().from(schema.cards).where(eq(schema.cards.id, id)).limit(1)
+    )[0]!;
     return c.json(publicCard(updated, user.login));
   });
 
-  app.delete('/api/cards/:id', (c) => {
+  app.delete('/api/cards/:id', async (c) => {
     const user = c.get('user');
     const id = c.req.param('id');
-    const card = db
-      .select({ id: schema.cards.id })
-      .from(schema.cards)
-      .where(and(eq(schema.cards.id, id), eq(schema.cards.userId, user.id)))
-      .get();
+    const card = (
+      await db
+        .select({ id: schema.cards.id })
+        .from(schema.cards)
+        .where(and(eq(schema.cards.id, id), eq(schema.cards.userId, user.id)))
+        .limit(1)
+    )[0];
     if (!card) return c.json({ error: 'not_found' }, 404);
-    db.delete(schema.cards).where(eq(schema.cards.id, id)).run();
+    await db.delete(schema.cards).where(eq(schema.cards.id, id));
     return c.json({ ok: true });
   });
 

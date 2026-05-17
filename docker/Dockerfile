@@ -28,8 +28,10 @@ RUN cd apps/web && bun x svelte-kit sync && bun run build
 FROM base AS runtime
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV DATABASE_PATH=/data/app.db
 ENV WEB_BUILD_DIR=/app/apps/web/build
+# DATABASE_URL (or POSTGRES_HOST/USER/PASSWORD/DB) is supplied at deploy
+# time by Coolify / the compose env — no default; the app refuses to
+# boot without one.
 
 # Bring the full deps-stage tree (manifests + node_modules + workspace
 # symlinks under apps/*/node_modules and packages/*/node_modules). Then
@@ -41,7 +43,6 @@ COPY packages packages
 COPY apps/api apps/api
 COPY --from=web-build /app/apps/web/build ./apps/web/build
 
-VOLUME ["/data"]
 EXPOSE 3000
 
 # Migrations run inline at API startup (apps/api/src/index.ts → runStartupMigrations).

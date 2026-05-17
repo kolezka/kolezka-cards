@@ -28,7 +28,7 @@ export function createAuthRoute(db: DB, env: Env): Hono {
       );
       return c.json({ error: 'oauth_not_configured' }, 503);
     }
-    const { state } = createOAuthState(db, { redirectTo: c.req.query('redirect') ?? null });
+    const { state } = await createOAuthState(db, { redirectTo: c.req.query('redirect') ?? null });
     setOAuthStateCookie(c, env, state);
     const url = gh.createAuthorizationURL(state, ['read:user']);
     logger.info({ event: 'oauth.start', state: state.slice(0, 8) }, 'oauth start');
@@ -53,7 +53,7 @@ export function createAuthRoute(db: DB, env: Env): Hono {
     if (!cookieState || cookieState !== stateQ) {
       return c.json({ error: 'state_mismatch' }, 400);
     }
-    const stored = consumeOAuthState(db, stateQ);
+    const stored = await consumeOAuthState(db, stateQ);
     if (!stored) return c.json({ error: 'state_expired' }, 400);
 
     let tokens: { accessToken(): string };
@@ -72,33 +72,28 @@ export function createAuthRoute(db: DB, env: Env): Hono {
       return c.json({ error: 'github_user_failed' }, 502);
     }
 
-    const existing = db
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.githubId, ghUser.id))
-      .limit(1)
-      .get();
+    const existing = (
+      await db.select().from(schema.users).where(eq(schema.users.githubId, ghUser.id)).limit(1)
+    )[0];
 
     let userId: string;
     if (existing) {
       userId = existing.id;
-      db.update(schema.users)
+      await db
+        .update(schema.users)
         .set({ login: ghUser.login, avatarUrl: ghUser.avatar_url })
-        .where(eq(schema.users.id, userId))
-        .run();
+        .where(eq(schema.users.id, userId));
     } else {
       userId = nanoid(16);
-      db.insert(schema.users)
-        .values({
-          id: userId,
-          githubId: ghUser.id,
-          login: ghUser.login,
-          avatarUrl: ghUser.avatar_url,
-        })
-        .run();
+      await db.insert(schema.users).values({
+        id: userId,
+        githubId: ghUser.id,
+        login: ghUser.login,
+        avatarUrl: ghUser.avatar_url,
+      });
     }
 
-    const { id: sessionId, expiresAt } = createSession(db, {
+    const { id: sessionId, expiresAt } = await createSession(db, {
       userId,
       userAgent: c.req.header('user-agent') ?? null,
     });
@@ -112,7 +107,7 @@ export function createAuthRoute(db: DB, env: Env): Hono {
 
   app.post('/auth/logout', async (c) => {
     const sid = readSessionCookie(c);
-    if (sid) deleteSession(db, sid);
+    if (sid) await deleteSession(db, sid);
     clearSessionCookie(c, env);
     return c.json({ ok: true });
   });

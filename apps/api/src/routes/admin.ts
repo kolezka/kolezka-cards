@@ -11,8 +11,8 @@ export function createAdminRoute(db: DB, env: Env): Hono<SessionContext> {
   app.use('/api/admin/*', requireSession(db, env));
   app.use('/api/admin/*', requireAdmin(env));
 
-  app.get('/api/admin/users', (c) => {
-    const rows = db
+  app.get('/api/admin/users', async (c) => {
+    const rows = await db
       .select({
         id: schema.users.id,
         githubId: schema.users.githubId,
@@ -24,12 +24,11 @@ export function createAdminRoute(db: DB, env: Env): Hono<SessionContext> {
       .from(schema.users)
       .leftJoin(schema.cards, eq(schema.cards.userId, schema.users.id))
       .groupBy(schema.users.id)
-      .orderBy(desc(schema.users.createdAt))
-      .all();
+      .orderBy(desc(schema.users.createdAt));
     return c.json(
       rows.map((r) => ({
         id: r.id,
-        githubId: r.githubId,
+        githubId: Number(r.githubId),
         login: r.login,
         avatarUrl: r.avatarUrl,
         createdAt: r.createdAt,
@@ -38,16 +37,18 @@ export function createAdminRoute(db: DB, env: Env): Hono<SessionContext> {
     );
   });
 
-  app.get('/api/admin/users/:userId/cards', (c) => {
+  app.get('/api/admin/users/:userId/cards', async (c) => {
     const userId = c.req.param('userId');
-    const user = db
-      .select({ login: schema.users.login })
-      .from(schema.users)
-      .where(eq(schema.users.id, userId))
-      .get();
+    const user = (
+      await db
+        .select({ login: schema.users.login })
+        .from(schema.users)
+        .where(eq(schema.users.id, userId))
+        .limit(1)
+    )[0];
     if (!user) return c.json({ error: 'not_found' }, 404);
 
-    const rows = db
+    const rows = await db
       .select({
         id: schema.cards.id,
         slug: schema.cards.slug,
@@ -68,8 +69,7 @@ export function createAdminRoute(db: DB, env: Env): Hono<SessionContext> {
       })
       .from(schema.cards)
       .where(eq(schema.cards.userId, userId))
-      .orderBy(desc(schema.cards.createdAt))
-      .all();
+      .orderBy(desc(schema.cards.createdAt));
 
     return c.json({
       user: { id: userId, login: user.login },
@@ -88,31 +88,35 @@ export function createAdminRoute(db: DB, env: Env): Hono<SessionContext> {
     });
   });
 
-  app.delete('/api/admin/cards/:cardId', (c) => {
+  app.delete('/api/admin/cards/:cardId', async (c) => {
     const id = c.req.param('cardId');
-    const existing = db
-      .select({ id: schema.cards.id })
-      .from(schema.cards)
-      .where(eq(schema.cards.id, id))
-      .get();
+    const existing = (
+      await db
+        .select({ id: schema.cards.id })
+        .from(schema.cards)
+        .where(eq(schema.cards.id, id))
+        .limit(1)
+    )[0];
     if (!existing) return c.json({ error: 'not_found' }, 404);
-    db.delete(schema.cards).where(eq(schema.cards.id, id)).run();
+    await db.delete(schema.cards).where(eq(schema.cards.id, id));
     return c.json({ ok: true });
   });
 
-  app.delete('/api/admin/users/:userId', (c) => {
+  app.delete('/api/admin/users/:userId', async (c) => {
     const id = c.req.param('userId');
     const me = c.get('user');
     if (id === me.id) {
       return c.json({ error: 'cannot_delete_self' }, 400);
     }
-    const existing = db
-      .select({ id: schema.users.id })
-      .from(schema.users)
-      .where(eq(schema.users.id, id))
-      .get();
+    const existing = (
+      await db
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.id, id))
+        .limit(1)
+    )[0];
     if (!existing) return c.json({ error: 'not_found' }, 404);
-    db.delete(schema.users).where(eq(schema.users.id, id)).run();
+    await db.delete(schema.users).where(eq(schema.users.id, id));
     return c.json({ ok: true });
   });
 

@@ -1,12 +1,13 @@
 import { defineConfig } from 'drizzle-kit';
 
-const databasePath = process.env.DATABASE_PATH ?? './data/app.db';
+const url =
+  process.env.DATABASE_URL ?? 'postgresql://postgres:postgres@localhost:5432/kolezka_cards';
 
 export default defineConfig({
-  dialect: 'sqlite',
+  dialect: 'postgresql',
   schema: './src/schema.ts',
   out: './migrations',
-  dbCredentials: { url: databasePath },
+  dbCredentials: { url },
   verbose: true,
   strict: true,
 });

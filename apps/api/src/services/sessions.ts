@@ -25,19 +25,20 @@ function newSessionId(): string {
   return randomBytes(24).toString('base64url');
 }
 
-export function createSession(db: DB, input: CreateSessionInput): CreateSessionResult {
+export async function createSession(
+  db: DB,
+  input: CreateSessionInput,
+): Promise<CreateSessionResult> {
   const now = input.now ?? new Date();
   const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
   const id = newSessionId();
-  db.insert(schema.sessions)
-    .values({
-      id,
-      userId: input.userId,
-      userAgentHash: hashUa(input.userAgent),
-      expiresAt,
-      createdAt: now,
-    })
-    .run();
+  await db.insert(schema.sessions).values({
+    id,
+    userId: input.userId,
+    userAgentHash: hashUa(input.userAgent),
+    expiresAt,
+    createdAt: now,
+  });
   return { id, expiresAt };
 }
 
@@ -46,56 +47,56 @@ export interface LoadedSession {
   user: schema.User;
 }
 
-export function loadSession(
+export async function loadSession(
   db: DB,
   sessionId: string,
   now: Date = new Date(),
-): LoadedSession | null {
-  const row = db
+): Promise<LoadedSession | null> {
+  const rows = await db
     .select()
     .from(schema.sessions)
     .innerJoin(schema.users, eq(schema.sessions.userId, schema.users.id))
     .where(eq(schema.sessions.id, sessionId))
-    .limit(1)
-    .get();
+    .limit(1);
+  const row = rows[0];
   if (!row) return null;
   if (row.sessions.expiresAt.getTime() <= now.getTime()) {
-    db.delete(schema.sessions).where(eq(schema.sessions.id, sessionId)).run();
+    await db.delete(schema.sessions).where(eq(schema.sessions.id, sessionId));
     return null;
   }
   return { session: row.sessions, user: row.users };
 }
 
-export function refreshSessionIfStale(
+export async function refreshSessionIfStale(
   db: DB,
   sessionId: string,
   now: Date = new Date(),
-): { expiresAt: Date } | null {
-  const row = db
+): Promise<{ expiresAt: Date } | null> {
+  const rows = await db
     .select({ expiresAt: schema.sessions.expiresAt })
     .from(schema.sessions)
     .where(eq(schema.sessions.id, sessionId))
-    .limit(1)
-    .get();
+    .limit(1);
+  const row = rows[0];
   if (!row) return null;
   const remaining = row.expiresAt.getTime() - now.getTime();
   if (remaining > SESSION_REFRESH_THRESHOLD_MS) return null;
   const newExpiry = new Date(now.getTime() + SESSION_TTL_MS);
-  db.update(schema.sessions)
+  await db
+    .update(schema.sessions)
     .set({ expiresAt: newExpiry })
-    .where(eq(schema.sessions.id, sessionId))
-    .run();
+    .where(eq(schema.sessions.id, sessionId));
   return { expiresAt: newExpiry };
 }
 
-export function deleteSession(db: DB, sessionId: string): void {
-  db.delete(schema.sessions).where(eq(schema.sessions.id, sessionId)).run();
+export async function deleteSession(db: DB, sessionId: string): Promise<void> {
+  await db.delete(schema.sessions).where(eq(schema.sessions.id, sessionId));
 }
 
-export function sweepExpiredSessions(db: DB, now: Date = new Date()): void {
-  db.delete(schema.sessions).where(lt(schema.sessions.expiresAt, now)).run();
+export async function sweepExpiredSessions(db: DB, now: Date = new Date()): Promise<void> {
+  await db.delete(schema.sessions).where(lt(schema.sessions.expiresAt, now));
 }
 
-export function deleteUserSessions(db: DB, userId: string): void {
-  db.delete(schema.sessions).where(eq(schema.sessions.userId, userId)).run();
+export async function deleteUserSessions(db: DB, userId: string): Promise<void> {
+  await db.delete(schema.sessions).where(eq(schema.sessions.userId, userId));
 }

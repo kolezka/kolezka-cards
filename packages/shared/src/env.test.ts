@@ -4,7 +4,6 @@ import { type Env, isAdminLogin, parseAdminLogins } from './env';
 const baseEnv: Env = {
   APP_SECRET: 'x'.repeat(32),
   BASE_URL: 'https://example.com',
-  DATABASE_PATH: ':memory:',
   NODE_ENV: 'test',
 };
 

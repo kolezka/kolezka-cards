@@ -1,17 +1,28 @@
 import { sql } from 'drizzle-orm';
-import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  bigint,
+  boolean,
+  date,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 
-export const users = sqliteTable('users', {
+export const users = pgTable('users', {
   id: text('id').primaryKey(),
-  githubId: integer('github_id').notNull().unique(),
+  githubId: bigint('github_id', { mode: 'number' }).notNull().unique(),
   login: text('login').notNull(),
   avatarUrl: text('avatar_url'),
-  createdAt: integer('created_at', { mode: 'timestamp_ms' })
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
     .notNull()
-    .default(sql`(unixepoch() * 1000)`),
+    .default(sql`now()`),
 });
 
-export const cards = sqliteTable(
+export const cards = pgTable(
   'cards',
   {
     id: text('id').primaryKey(),
@@ -20,21 +31,21 @@ export const cards = sqliteTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     slug: text('slug').notNull(),
     type: text('type').notNull(),
-    configJson: text('config_json', { mode: 'json' }).notNull(),
+    configJson: jsonb('config_json').notNull(),
     theme: text('theme').notNull().default('github_dark'),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch() * 1000)`),
-    updatedAt: integer('updated_at', { mode: 'timestamp_ms' })
+      .default(sql`now()`),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch() * 1000)`),
+      .default(sql`now()`),
   },
   (t) => ({
     slugPerUser: uniqueIndex('cards_user_slug_uq').on(t.userId, t.slug),
   }),
 );
 
-export const visits = sqliteTable(
+export const visits = pgTable(
   'visits',
   {
     id: text('id').primaryKey(),
@@ -45,17 +56,17 @@ export const visits = sqliteTable(
     country: text('country'),
     referrerHost: text('referrer_host'),
     userAgentFamily: text('user_agent_family'),
-    viaCamo: integer('via_camo', { mode: 'boolean' }).notNull().default(false),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    viaCamo: boolean('via_camo').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch() * 1000)`),
+      .default(sql`now()`),
   },
   (t) => ({
     cardFpIdx: index('visits_card_fp_created_idx').on(t.cardId, t.fingerprintHash, t.createdAt),
   }),
 );
 
-export const impressionBuckets = sqliteTable(
+export const impressionBuckets = pgTable(
   'impression_buckets',
   {
     cardId: text('card_id')
@@ -65,8 +76,9 @@ export const impressionBuckets = sqliteTable(
     totalImpressions: integer('total_impressions').notNull().default(0),
     uniqueVisits: integer('unique_visits').notNull().default(0),
     // Source split. Sum of direct+camo equals totalImpressions for buckets
-    // created after migration 0003; older buckets have both at 0 and the
-    // dashboard surfaces the split as "unknown" for them.
+    // created after migration 0003 (SQLite era); older buckets had both at 0
+    // and the dashboard surfaces the split as "unknown" for them. After the
+    // PG cutover, all rows are post-split by construction.
     directImpressions: integer('direct_impressions').notNull().default(0),
     camoImpressions: integer('camo_impressions').notNull().default(0),
   },
@@ -75,18 +87,18 @@ export const impressionBuckets = sqliteTable(
   }),
 );
 
-export const sessions = sqliteTable(
+export const sessions = pgTable(
   'sessions',
   {
     id: text('id').primaryKey(),
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
     userAgentHash: text('user_agent_hash'),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch() * 1000)`),
+      .default(sql`now()`),
   },
   (t) => ({
     userIdx: index('sessions_user_idx').on(t.userId),
@@ -94,16 +106,16 @@ export const sessions = sqliteTable(
   }),
 );
 
-export const oauthState = sqliteTable(
+export const oauthState = pgTable(
   'oauth_state',
   {
     state: text('state').primaryKey(),
     codeVerifier: text('code_verifier'),
     redirectTo: text('redirect_to'),
-    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch() * 1000)`),
+      .default(sql`now()`),
   },
   (t) => ({
     expiresIdx: index('oauth_state_expires_idx').on(t.expiresAt),
@@ -112,17 +124,17 @@ export const oauthState = sqliteTable(
 
 // Daily snapshots of follower counts per user. Populated lazily on render
 // of a followers-sparkline card; one row per (userId, day) — idempotent.
-export const usersFollowersHistory = sqliteTable(
+export const usersFollowersHistory = pgTable(
   'users_followers_history',
   {
     userId: text('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
-    day: text('day').notNull(), // ISO date YYYY-MM-DD in UTC
+    day: date('day', { mode: 'string' }).notNull(), // ISO date YYYY-MM-DD in UTC
     followers: integer('followers').notNull(),
-    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
-      .default(sql`(unixepoch() * 1000)`),
+      .default(sql`now()`),
   },
   (t) => ({
     pk: uniqueIndex('users_followers_history_pk').on(t.userId, t.day),

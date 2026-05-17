@@ -23,13 +23,13 @@ export interface VisitResult {
   uniqueVisits: number;
 }
 
-export function trackVisit(db: DB, input: VisitInput): VisitResult {
+export async function trackVisit(db: DB, input: VisitInput): Promise<VisitResult> {
   const now = input.now ?? new Date();
   const nowMs = now.getTime();
   const hourBucket = Math.floor(nowMs / HOUR_MS);
   const windowStart = new Date(nowMs - DEDUP_WINDOW_MS);
 
-  const recent = db
+  const recent = await db
     .select({ id: schema.visits.id })
     .from(schema.visits)
     .where(
@@ -39,27 +39,25 @@ export function trackVisit(db: DB, input: VisitInput): VisitResult {
         gte(schema.visits.createdAt, windowStart),
       ),
     )
-    .limit(1)
-    .all();
+    .limit(1);
 
   const wasUnique = recent.length === 0;
 
   if (wasUnique) {
-    db.insert(schema.visits)
-      .values({
-        id: nanoid(16),
-        cardId: input.cardId,
-        fingerprintHash: input.fingerprintHash,
-        country: input.country,
-        referrerHost: input.referrerHost,
-        userAgentFamily: input.userAgentFamily,
-        viaCamo: input.viaCamo,
-        createdAt: now,
-      })
-      .run();
+    await db.insert(schema.visits).values({
+      id: nanoid(16),
+      cardId: input.cardId,
+      fingerprintHash: input.fingerprintHash,
+      country: input.country,
+      referrerHost: input.referrerHost,
+      userAgentFamily: input.userAgentFamily,
+      viaCamo: input.viaCamo,
+      createdAt: now,
+    });
   }
 
-  db.insert(schema.impressionBuckets)
+  await db
+    .insert(schema.impressionBuckets)
     .values({
       cardId: input.cardId,
       hourBucket,
@@ -82,10 +80,9 @@ export function trackVisit(db: DB, input: VisitInput): VisitResult {
           ? sql`${schema.impressionBuckets.camoImpressions} + 1`
           : schema.impressionBuckets.camoImpressions,
       },
-    })
-    .run();
+    });
 
-  const currentBucket = db
+  const currentBuckets = await db
     .select({ total: schema.impressionBuckets.totalImpressions })
     .from(schema.impressionBuckets)
     .where(
@@ -93,8 +90,8 @@ export function trackVisit(db: DB, input: VisitInput): VisitResult {
         eq(schema.impressionBuckets.cardId, input.cardId),
         eq(schema.impressionBuckets.hourBucket, hourBucket),
       ),
-    )
-    .get();
+    );
+  const currentBucket = currentBuckets[0];
   if (currentBucket && currentBucket.total === IMPRESSIONS_HOUR_FLAG_THRESHOLD) {
     logger.warn(
       { cardId: input.cardId, hourBucket, threshold: IMPRESSIONS_HOUR_FLAG_THRESHOLD },
@@ -102,14 +99,14 @@ export function trackVisit(db: DB, input: VisitInput): VisitResult {
     );
   }
 
-  const totals = db
+  const totalsRows = await db
     .select({
       totalImpressions: sql<number>`COALESCE(SUM(${schema.impressionBuckets.totalImpressions}), 0)`,
       uniqueVisits: sql<number>`COALESCE(SUM(${schema.impressionBuckets.uniqueVisits}), 0)`,
     })
     .from(schema.impressionBuckets)
-    .where(eq(schema.impressionBuckets.cardId, input.cardId))
-    .get();
+    .where(eq(schema.impressionBuckets.cardId, input.cardId));
+  const totals = totalsRows[0];
 
   return {
     wasUnique,
@@ -121,18 +118,18 @@ export function trackVisit(db: DB, input: VisitInput): VisitResult {
 // Read-only totals for a card. Used when we want the visit-counter card
 // to still render the right numbers for self-traffic we don't want to
 // track (e.g. owner previewing in the dashboard).
-export function getVisitTotals(
+export async function getVisitTotals(
   db: DB,
   cardId: string,
-): { totalImpressions: number; uniqueVisits: number } {
-  const totals = db
+): Promise<{ totalImpressions: number; uniqueVisits: number }> {
+  const rows = await db
     .select({
       totalImpressions: sql<number>`COALESCE(SUM(${schema.impressionBuckets.totalImpressions}), 0)`,
       uniqueVisits: sql<number>`COALESCE(SUM(${schema.impressionBuckets.uniqueVisits}), 0)`,
     })
     .from(schema.impressionBuckets)
-    .where(eq(schema.impressionBuckets.cardId, cardId))
-    .get();
+    .where(eq(schema.impressionBuckets.cardId, cardId));
+  const totals = rows[0];
   return {
     totalImpressions: Number(totals?.totalImpressions ?? 0),
     uniqueVisits: Number(totals?.uniqueVisits ?? 0),

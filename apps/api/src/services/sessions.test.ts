@@ -1,10 +1,6 @@
-import { Database } from 'bun:sqlite';
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
 import * as schema from '@kc/db/schema';
-import { drizzle } from 'drizzle-orm/bun-sqlite';
-import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
+import { type TestDB, createTestDb } from '@kc/db/testing';
 import { nanoid } from 'nanoid';
 import {
   SESSION_REFRESH_THRESHOLD_MS,
@@ -15,79 +11,76 @@ import {
   refreshSessionIfStale,
 } from './sessions';
 
-const TEST_DB = resolve(import.meta.dir, '../../.tmp/sessions.test.db');
-
-let sqlite: Database;
-let db: ReturnType<typeof drizzle<typeof schema>>;
+let db: TestDB;
+let close: () => Promise<void>;
 let userId: string;
 
-beforeAll(() => {
-  mkdirSync(dirname(TEST_DB), { recursive: true });
-  for (const suffix of ['', '-shm', '-wal']) {
-    if (existsSync(`${TEST_DB}${suffix}`)) rmSync(`${TEST_DB}${suffix}`);
-  }
-  sqlite = new Database(TEST_DB, { create: true });
-  sqlite.run('PRAGMA journal_mode = WAL;');
-  sqlite.run('PRAGMA foreign_keys = ON;');
-  db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder: resolve(import.meta.dir, '../../../../packages/db/migrations') });
+beforeAll(async () => {
+  ({ db, close } = await createTestDb());
   userId = nanoid(16);
-  db.insert(schema.users).values({ id: userId, githubId: 1, login: 'tester' }).run();
+  await db.insert(schema.users).values({ id: userId, githubId: 1, login: 'tester' });
 });
 
-afterAll(() => sqlite.close());
+afterAll(async () => {
+  await close();
+});
 
 describe('sessions service', () => {
-  it('creates a session with 30-day TTL and hashes UA', () => {
+  it('creates a session with 30-day TTL and hashes UA', async () => {
     const now = new Date('2026-05-11T12:00:00Z');
-    const { id, expiresAt } = createSession(db, { userId, userAgent: 'Mozilla/5.0', now });
+    const { id, expiresAt } = await createSession(db, {
+      userId,
+      userAgent: 'Mozilla/5.0',
+      now,
+    });
     expect(id).toMatch(/^[0-9a-zA-Z_-]{16,}$/);
     expect(expiresAt.getTime() - now.getTime()).toBe(SESSION_TTL_MS);
 
-    const row = db.select().from(schema.sessions).all()[0]!;
+    const rows = await db.select().from(schema.sessions);
+    const row = rows[0]!;
     expect(row.userId).toBe(userId);
     expect(row.userAgentHash).not.toBe('Mozilla/5.0');
     expect(row.userAgentHash?.length).toBe(64);
   });
 
-  it('loads a valid session and returns the user row', () => {
-    const { id } = createSession(db, { userId, userAgent: 'ua-load' });
-    const loaded = loadSession(db, id);
+  it('loads a valid session and returns the user row', async () => {
+    const { id } = await createSession(db, { userId, userAgent: 'ua-load' });
+    const loaded = await loadSession(db, id);
     expect(loaded?.session.id).toBe(id);
     expect(loaded?.user.login).toBe('tester');
   });
 
-  it('returns null for an unknown session id', () => {
-    expect(loadSession(db, 'unknown-id')).toBeNull();
+  it('returns null for an unknown session id', async () => {
+    expect(await loadSession(db, 'unknown-id')).toBeNull();
   });
 
-  it('returns null for an expired session and deletes the row', () => {
+  it('returns null for an expired session and deletes the row', async () => {
     const expired = new Date(Date.now() - SESSION_TTL_MS - 1);
     const id = nanoid(24);
-    db.insert(schema.sessions).values({ id, userId, expiresAt: expired }).run();
-    expect(loadSession(db, id)).toBeNull();
-    const rows = db.select({ id: schema.sessions.id }).from(schema.sessions).all();
+    await db.insert(schema.sessions).values({ id, userId, expiresAt: expired });
+    expect(await loadSession(db, id)).toBeNull();
+    const rows = await db.select({ id: schema.sessions.id }).from(schema.sessions);
     expect(rows.some((s) => s.id === id)).toBe(false);
   });
 
-  it('rolling refresh: only extends when within threshold', () => {
+  it('rolling refresh: only extends when within threshold', async () => {
     const now = new Date('2026-05-11T12:00:00Z');
-    const { id } = createSession(db, { userId, userAgent: 'ua-roll', now });
+    const { id } = await createSession(db, { userId, userAgent: 'ua-roll', now });
 
-    const noRefresh = refreshSessionIfStale(db, id, now);
+    const noRefresh = await refreshSessionIfStale(db, id, now);
     expect(noRefresh).toBeNull();
 
     const nearExpiry = new Date(
       now.getTime() + SESSION_TTL_MS - SESSION_REFRESH_THRESHOLD_MS + 1000,
     );
-    const refreshed = refreshSessionIfStale(db, id, nearExpiry);
+    const refreshed = await refreshSessionIfStale(db, id, nearExpiry);
     expect(refreshed).not.toBeNull();
     expect(refreshed!.expiresAt.getTime() - nearExpiry.getTime()).toBe(SESSION_TTL_MS);
   });
 
-  it('deletes a session', () => {
-    const { id } = createSession(db, { userId, userAgent: 'ua-delete' });
-    deleteSession(db, id);
-    expect(loadSession(db, id)).toBeNull();
+  it('deletes a session', async () => {
+    const { id } = await createSession(db, { userId, userAgent: 'ua-delete' });
+    await deleteSession(db, id);
+    expect(await loadSession(db, id)).toBeNull();
   });
 });

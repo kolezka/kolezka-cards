@@ -1,12 +1,14 @@
+import { loadEnv, resolveDatabaseUrl } from '@kc/shared/env';
 import { runStartupMigrations } from './run-migrations';
 
-const databasePath = process.env.DATABASE_PATH ?? './data/app.db';
-
 try {
-  const result = runStartupMigrations(databasePath);
+  const env = loadEnv();
+  const databaseUrl = resolveDatabaseUrl(env);
+  const result = await runStartupMigrations(databaseUrl);
   console.log(
-    `[migrate] applied=${result.applied} total=${result.total} latest=${result.latestHash ?? 'none'} db=${result.databasePath}`,
+    `[migrate] applied=${result.applied} total=${result.total} latest=${result.latestHash ?? 'none'} db=${result.databaseUrl}`,
   );
+  process.exit(0);
 } catch (err) {
   const message = err instanceof Error ? err.message : String(err);
   console.error(`[migrate] FAILED: ${message}`);

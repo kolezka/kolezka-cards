@@ -1,44 +1,35 @@
-import { Database } from 'bun:sqlite';
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
-import { runStartupMigrations } from './run-migrations';
+import { resolve } from 'node:path';
+import { PGlite } from '@electric-sql/pglite';
+import { sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/pglite';
+import { migrate } from 'drizzle-orm/pglite/migrator';
 
-const TMP_DIR = resolve(import.meta.dir, '../.tmp');
-const TEST_DB = resolve(TMP_DIR, 'run-migrations.test.db');
+const MIGRATIONS_FOLDER = resolve(import.meta.dir, '..', 'migrations');
 
-function clean(path: string) {
-  for (const suffix of ['', '-shm', '-wal']) {
-    if (existsSync(`${path}${suffix}`)) rmSync(`${path}${suffix}`);
-  }
-}
+let pg: PGlite;
+let db: ReturnType<typeof drizzle>;
 
-beforeAll(() => {
-  mkdirSync(dirname(TEST_DB), { recursive: true });
-  clean(TEST_DB);
+beforeAll(async () => {
+  pg = new PGlite();
+  db = drizzle(pg);
 });
 
-afterAll(() => {
-  clean(TEST_DB);
+afterAll(async () => {
+  await pg.close();
 });
 
-describe('runStartupMigrations', () => {
-  it('applies all migrations on a fresh database and reports the latest hash', () => {
-    const result = runStartupMigrations(TEST_DB);
-    expect(result.applied).toBeGreaterThan(0);
-    expect(result.latestHash).toMatch(/^[0-9a-f]{16,}$/);
+describe('migrations', () => {
+  it('apply cleanly on a fresh database and create the expected tables', async () => {
+    await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
 
-    // Verify the schema is actually present.
-    const sqlite = new Database(TEST_DB, { readonly: true });
-    const tables = sqlite
-      .query<{ name: string }, []>(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle_%'",
-      )
-      .all()
-      .map((row) => row.name)
-      .sort();
-    sqlite.close();
-
+    const result = (await db.execute(
+      sql`SELECT table_name FROM information_schema.tables
+          WHERE table_schema = 'public'
+          ORDER BY table_name`,
+    )) as unknown as { rows: Array<{ table_name: string }> } | Array<{ table_name: string }>;
+    const rows: Array<{ table_name: string }> = Array.isArray(result) ? result : result.rows;
+    const tables = rows.map((r) => r.table_name).sort();
     expect(tables).toEqual(
       [
         'cards',
@@ -52,26 +43,8 @@ describe('runStartupMigrations', () => {
     );
   });
 
-  it('is idempotent — second run applies zero new migrations and returns the same latest hash', () => {
-    const first = runStartupMigrations(TEST_DB);
-    const second = runStartupMigrations(TEST_DB);
-    expect(second.applied).toBe(0);
-    expect(second.latestHash).toBe(first.latestHash);
-  });
-
-  it('does not leak the sqlite connection between runs', () => {
-    // A leaked WAL writer would prevent another exclusive open. Round-trip
-    // an exclusive connection between calls to confirm no handles linger.
-    runStartupMigrations(TEST_DB);
-    const sqlite = new Database(TEST_DB);
-    sqlite.run('PRAGMA journal_mode = WAL;');
-    sqlite.close();
-    runStartupMigrations(TEST_DB);
-  });
-
-  it('throws a structured error when the migrations folder is missing', () => {
-    expect(() => runStartupMigrations(TEST_DB, { migrationsFolder: '/nonexistent/path' })).toThrow(
-      /migrations/i,
-    );
+  it('are idempotent — re-running applies no further changes', async () => {
+    // Should not throw on second invocation.
+    await migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
   });
 });

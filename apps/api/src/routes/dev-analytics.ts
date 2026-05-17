@@ -5,8 +5,8 @@ import { Hono } from 'hono';
 export function createDevAnalyticsRoute(db: DB): Hono {
   const app = new Hono();
 
-  app.get('/api/_dev/cards', (c) => {
-    const rows = db
+  app.get('/api/_dev/cards', async (c) => {
+    const rows = await db
       .select({
         id: schema.cards.id,
         userLogin: schema.users.login,
@@ -14,24 +14,24 @@ export function createDevAnalyticsRoute(db: DB): Hono {
         type: schema.cards.type,
       })
       .from(schema.cards)
-      .innerJoin(schema.users, eq(schema.cards.userId, schema.users.id))
-      .all();
+      .innerJoin(schema.users, eq(schema.cards.userId, schema.users.id));
     return c.json(rows);
   });
 
-  app.get('/api/_dev/cards/:id', (c) => {
+  app.get('/api/_dev/cards/:id', async (c) => {
     const id = c.req.param('id');
-    const card = db.select().from(schema.cards).where(eq(schema.cards.id, id)).get();
+    const card = (await db.select().from(schema.cards).where(eq(schema.cards.id, id)).limit(1))[0];
     if (!card) return c.json({ error: 'not_found' }, 404);
 
-    const totals = db
-      .select({
-        totalImpressions: sql<number>`COALESCE(SUM(${schema.impressionBuckets.totalImpressions}), 0)`,
-        uniqueVisits: sql<number>`COALESCE(SUM(${schema.impressionBuckets.uniqueVisits}), 0)`,
-      })
-      .from(schema.impressionBuckets)
-      .where(eq(schema.impressionBuckets.cardId, id))
-      .get();
+    const totals = (
+      await db
+        .select({
+          totalImpressions: sql<number>`COALESCE(SUM(${schema.impressionBuckets.totalImpressions}), 0)`,
+          uniqueVisits: sql<number>`COALESCE(SUM(${schema.impressionBuckets.uniqueVisits}), 0)`,
+        })
+        .from(schema.impressionBuckets)
+        .where(eq(schema.impressionBuckets.cardId, id))
+    )[0];
 
     return c.json({
       card,

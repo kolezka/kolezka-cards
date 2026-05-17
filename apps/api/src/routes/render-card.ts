@@ -133,13 +133,14 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
     }
     const slug = slugWithExt.slice(0, -'.svg'.length);
 
-    const row = db
-      .select({ card: schema.cards, ownerLogin: schema.users.login })
-      .from(schema.cards)
-      .innerJoin(schema.users, eq(schema.cards.userId, schema.users.id))
-      .where(and(eq(schema.users.login, userLogin), eq(schema.cards.slug, slug)))
-      .limit(1)
-      .get();
+    const row = (
+      await db
+        .select({ card: schema.cards, ownerLogin: schema.users.login })
+        .from(schema.cards)
+        .innerJoin(schema.users, eq(schema.cards.userId, schema.users.id))
+        .where(and(eq(schema.users.login, userLogin), eq(schema.cards.slug, slug)))
+        .limit(1)
+    )[0];
     if (!row) return c.text('Not found', 404);
     const card = row.card;
 
@@ -192,8 +193,8 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
     // totals without bumping any counters so it can render the visit-counter
     // card correctly without inflating analytics.
     const visit = isSelfTraffic
-      ? { wasUnique: false, ...getVisitTotals(db, card.id) }
-      : trackVisit(db, {
+      ? { wasUnique: false, ...(await getVisitTotals(db, card.id)) }
+      : await trackVisit(db, {
           cardId: card.id,
           fingerprintHash: fingerprint,
           country: headers['cf-ipcountry'] ?? null,
@@ -420,14 +421,14 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
           if (!user) return c.text('GitHub user not found', 404);
           // Lazy snapshot: idempotently insert today's count for this user.
           // First-ever view starts the history; subsequent views top it up daily.
-          snapshotFollowers(db, card.userId, user.followers);
+          await snapshotFollowers(db, card.userId, user.followers);
           // Pull recent history within the requested period
           const periodDays = followersDaysForPeriod(parsed.period);
           const sinceDay =
             parsed.period === 'all'
               ? undefined
               : new Date(Date.now() - periodDays * 86_400_000).toISOString().slice(0, 10);
-          const history = getFollowersHistory(db, card.userId, sinceDay);
+          const history = await getFollowersHistory(db, card.userId, sinceDay);
           svg = renderFollowersSparkline(
             parsed,
             {

@@ -9,20 +9,20 @@ function todayUtc(now: Date): string {
  * Insert today's follower count for a user, idempotently.
  * Returns the row whether it was newly inserted or pre-existing.
  */
-export function snapshotFollowers(
+export async function snapshotFollowers(
   db: DB,
   userId: string,
   followers: number,
   now: Date = new Date(),
-): void {
+): Promise<void> {
   const day = todayUtc(now);
-  // SQLite UPSERT — OR IGNORE makes the operation idempotent for the day.
-  // We deliberately do NOT update an existing row so the snapshot reflects
-  // the first value observed for the day (avoids jitter from rapid renders).
-  db.insert(schema.usersFollowersHistory)
+  // Idempotent insert: ON CONFLICT DO NOTHING. We deliberately do NOT
+  // update an existing row so the snapshot reflects the first value
+  // observed for the day (avoids jitter from rapid renders).
+  await db
+    .insert(schema.usersFollowersHistory)
     .values({ userId, day, followers })
-    .onConflictDoNothing()
-    .run();
+    .onConflictDoNothing();
 }
 
 export interface FollowersHistoryRow {
@@ -34,13 +34,13 @@ export interface FollowersHistoryRow {
  * Fetch follower history for a user, optionally from `sinceDay` onwards (inclusive),
  * sorted chronologically.
  */
-export function getFollowersHistory(
+export async function getFollowersHistory(
   db: DB,
   userId: string,
   sinceDay?: string,
-): FollowersHistoryRow[] {
+): Promise<FollowersHistoryRow[]> {
   const rows = sinceDay
-    ? db
+    ? await db
         .select({
           day: schema.usersFollowersHistory.day,
           followers: schema.usersFollowersHistory.followers,
@@ -52,15 +52,13 @@ export function getFollowersHistory(
             gte(schema.usersFollowersHistory.day, sinceDay),
           ),
         )
-        .all()
-    : db
+    : await db
         .select({
           day: schema.usersFollowersHistory.day,
           followers: schema.usersFollowersHistory.followers,
         })
         .from(schema.usersFollowersHistory)
-        .where(eq(schema.usersFollowersHistory.userId, userId))
-        .all();
+        .where(eq(schema.usersFollowersHistory.userId, userId));
   rows.sort((a, b) => a.day.localeCompare(b.day));
   return rows;
 }

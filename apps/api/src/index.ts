@@ -1,5 +1,5 @@
 import { getClient, runStartupMigrations } from '@kc/db';
-import { oauthConfigured } from '@kc/shared/env';
+import { oauthConfigured, resolveDatabaseUrl } from '@kc/shared/env';
 import { Hono } from 'hono';
 import { env } from './env';
 import { hashForLog, logger } from './logger';
@@ -19,12 +19,13 @@ import { metrics as metricsRoute } from './routes/metrics';
 import { createRenderCardRoute } from './routes/render-card';
 import { bumpCounter } from './services/metrics';
 
+const databaseUrl = resolveDatabaseUrl(env);
 try {
-  const migration = runStartupMigrations(env.DATABASE_PATH);
+  const migration = await runStartupMigrations(databaseUrl);
   logger.info(
     {
       event: 'db.migrate',
-      databasePath: migration.databasePath,
+      databaseUrl: migration.databaseUrl,
       applied: migration.applied,
       total: migration.total,
       latestHash: migration.latestHash,
@@ -36,7 +37,7 @@ try {
   process.exit(1);
 }
 
-const { db } = getClient(env.DATABASE_PATH);
+const { db } = getClient(databaseUrl);
 await initSentry(env);
 
 const app = new Hono();
@@ -101,7 +102,7 @@ logger.info(
     port,
     nodeEnv: env.NODE_ENV,
     baseUrl: env.BASE_URL,
-    databasePath: env.DATABASE_PATH,
+    databaseUrl: databaseUrl.replace(/:[^:@/]*@/, ':***@'),
     webBuildDir: env.WEB_BUILD_DIR ?? null,
     githubOauth: oauthConfigured(env),
     githubClientIdHash: hashForLog(env.GITHUB_CLIENT_ID),

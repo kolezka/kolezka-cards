@@ -1,55 +1,37 @@
-import { Database } from 'bun:sqlite';
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { existsSync, mkdirSync, rmSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { dirname } from 'node:path';
 import * as schema from '@kc/db/schema';
+import { type TestDB, createTestDb } from '@kc/db/testing';
 import { eq } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/bun-sqlite';
-import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import { nanoid } from 'nanoid';
 import { getVisitTotals, trackVisit } from './visit-tracker';
 
-const TEST_DB = resolve(import.meta.dir, '../../.tmp/visit-tracker.test.db');
-
-let sqlite: Database;
-let db: ReturnType<typeof drizzle<typeof schema>>;
+let db: TestDB;
+let close: () => Promise<void>;
 let cardId: string;
 let userId: string;
 
-beforeAll(() => {
-  mkdirSync(dirname(TEST_DB), { recursive: true });
-  if (existsSync(TEST_DB)) rmSync(TEST_DB);
-  if (existsSync(`${TEST_DB}-shm`)) rmSync(`${TEST_DB}-shm`);
-  if (existsSync(`${TEST_DB}-wal`)) rmSync(`${TEST_DB}-wal`);
-
-  sqlite = new Database(TEST_DB, { create: true });
-  sqlite.run('PRAGMA journal_mode = WAL;');
-  sqlite.run('PRAGMA foreign_keys = ON;');
-  db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder: resolve(import.meta.dir, '../../../../packages/db/migrations') });
+beforeAll(async () => {
+  ({ db, close } = await createTestDb());
 
   userId = nanoid(16);
   cardId = nanoid(12);
-  db.insert(schema.users).values({ id: userId, githubId: 1, login: 'tester' }).run();
-  db.insert(schema.cards)
-    .values({
-      id: cardId,
-      userId,
-      slug: 'c',
-      type: 'visit-counter',
-      configJson: { type: 'visit-counter' },
-    })
-    .run();
+  await db.insert(schema.users).values({ id: userId, githubId: 1, login: 'tester' });
+  await db.insert(schema.cards).values({
+    id: cardId,
+    userId,
+    slug: 'c',
+    type: 'visit-counter',
+    configJson: { type: 'visit-counter' },
+  });
 });
 
-afterAll(() => {
-  sqlite.close();
+afterAll(async () => {
+  await close();
 });
 
 describe('trackVisit', () => {
-  it('marks the first visit as unique and increments both counters', () => {
-    const r = trackVisit(db, {
+  it('marks the first visit as unique and increments both counters', async () => {
+    const r = await trackVisit(db, {
       cardId,
       fingerprintHash: 'fp-a',
       country: 'PL',
@@ -62,8 +44,8 @@ describe('trackVisit', () => {
     expect(r.uniqueVisits).toBe(1);
   });
 
-  it('counts a repeat fingerprint inside the 12h window as a non-unique impression', () => {
-    const r = trackVisit(db, {
+  it('counts a repeat fingerprint inside the 12h window as a non-unique impression', async () => {
+    const r = await trackVisit(db, {
       cardId,
       fingerprintHash: 'fp-a',
       country: 'PL',
@@ -76,8 +58,8 @@ describe('trackVisit', () => {
     expect(r.uniqueVisits).toBe(1);
   });
 
-  it('counts a different fingerprint as a new unique', () => {
-    const r = trackVisit(db, {
+  it('counts a different fingerprint as a new unique', async () => {
+    const r = await trackVisit(db, {
       cardId,
       fingerprintHash: 'fp-b',
       country: 'DE',
@@ -90,9 +72,9 @@ describe('trackVisit', () => {
     expect(r.uniqueVisits).toBe(2);
   });
 
-  it('treats a visit older than the dedup window as a fresh unique', () => {
+  it('treats a visit older than the dedup window as a fresh unique', async () => {
     const longAgo = new Date(Date.now() - 13 * 60 * 60 * 1000);
-    const r1 = trackVisit(db, {
+    const r1 = await trackVisit(db, {
       cardId,
       fingerprintHash: 'fp-stale',
       country: null,
@@ -103,7 +85,7 @@ describe('trackVisit', () => {
     });
     expect(r1.wasUnique).toBe(true);
 
-    const r2 = trackVisit(db, {
+    const r2 = await trackVisit(db, {
       cardId,
       fingerprintHash: 'fp-stale',
       country: null,
@@ -114,22 +96,17 @@ describe('trackVisit', () => {
     expect(r2.wasUnique).toBe(true);
   });
 
-  it('persists viaCamo flag on the visit row and routes impressions correctly', () => {
-    // Use a dedicated card so we can assert exact counter values
-    // without interference from the shared-card tests above.
+  it('persists viaCamo flag on the visit row and routes impressions correctly', async () => {
     const camoCardId = nanoid(12);
-    db.insert(schema.cards)
-      .values({
-        id: camoCardId,
-        userId,
-        slug: 'camo-card',
-        type: 'visit-counter',
-        configJson: { type: 'visit-counter' },
-      })
-      .run();
+    await db.insert(schema.cards).values({
+      id: camoCardId,
+      userId,
+      slug: 'camo-card',
+      type: 'visit-counter',
+      configJson: { type: 'visit-counter' },
+    });
 
-    // First: a Camo-proxied visit. Goes into camo_impressions only.
-    trackVisit(db, {
+    await trackVisit(db, {
       cardId: camoCardId,
       fingerprintHash: 'camo-fp-1',
       country: 'US',
@@ -137,8 +114,7 @@ describe('trackVisit', () => {
       userAgentFamily: 'camo',
       viaCamo: true,
     });
-    // Second: a direct visit with a different fingerprint. Goes into direct_impressions.
-    trackVisit(db, {
+    await trackVisit(db, {
       cardId: camoCardId,
       fingerprintHash: 'direct-fp-1',
       country: 'PL',
@@ -147,44 +123,38 @@ describe('trackVisit', () => {
       viaCamo: false,
     });
 
-    const rows = db
-      .select({
-        fp: schema.visits.fingerprintHash,
-        viaCamo: schema.visits.viaCamo,
-      })
+    const rows = await db
+      .select({ fp: schema.visits.fingerprintHash, viaCamo: schema.visits.viaCamo })
       .from(schema.visits)
-      .where(eq(schema.visits.cardId, camoCardId))
-      .all();
+      .where(eq(schema.visits.cardId, camoCardId));
     expect(rows.find((r) => r.fp === 'camo-fp-1')?.viaCamo).toBe(true);
     expect(rows.find((r) => r.fp === 'direct-fp-1')?.viaCamo).toBe(false);
 
-    const bucket = db
+    const buckets = await db
       .select({
         total: schema.impressionBuckets.totalImpressions,
         direct: schema.impressionBuckets.directImpressions,
         camo: schema.impressionBuckets.camoImpressions,
       })
       .from(schema.impressionBuckets)
-      .where(eq(schema.impressionBuckets.cardId, camoCardId))
-      .get();
+      .where(eq(schema.impressionBuckets.cardId, camoCardId));
+    const bucket = buckets[0];
     expect(bucket?.total).toBe(2);
     expect(bucket?.direct).toBe(1);
     expect(bucket?.camo).toBe(1);
   });
 
-  it('dedups a repeat Camo fingerprint without inflating uniques', () => {
+  it('dedups a repeat Camo fingerprint without inflating uniques', async () => {
     const dedupCardId = nanoid(12);
-    db.insert(schema.cards)
-      .values({
-        id: dedupCardId,
-        userId,
-        slug: 'camo-dedup',
-        type: 'visit-counter',
-        configJson: { type: 'visit-counter' },
-      })
-      .run();
+    await db.insert(schema.cards).values({
+      id: dedupCardId,
+      userId,
+      slug: 'camo-dedup',
+      type: 'visit-counter',
+      configJson: { type: 'visit-counter' },
+    });
 
-    trackVisit(db, {
+    await trackVisit(db, {
       cardId: dedupCardId,
       fingerprintHash: 'dup-fp',
       country: 'US',
@@ -192,7 +162,7 @@ describe('trackVisit', () => {
       userAgentFamily: 'camo',
       viaCamo: true,
     });
-    const r = trackVisit(db, {
+    const r = await trackVisit(db, {
       cardId: dedupCardId,
       fingerprintHash: 'dup-fp',
       country: 'US',
@@ -204,31 +174,29 @@ describe('trackVisit', () => {
     expect(r.totalImpressions).toBe(2);
     expect(r.uniqueVisits).toBe(1);
 
-    const bucket = db
+    const buckets = await db
       .select({
         direct: schema.impressionBuckets.directImpressions,
         camo: schema.impressionBuckets.camoImpressions,
       })
       .from(schema.impressionBuckets)
-      .where(eq(schema.impressionBuckets.cardId, dedupCardId))
-      .get();
+      .where(eq(schema.impressionBuckets.cardId, dedupCardId));
+    const bucket = buckets[0];
     expect(bucket?.direct).toBe(0);
     expect(bucket?.camo).toBe(2);
   });
 });
 
 describe('getVisitTotals', () => {
-  it('returns current totals without mutating any counters', () => {
-    const before = getVisitTotals(db, cardId);
+  it('returns current totals without mutating any counters', async () => {
+    const before = await getVisitTotals(db, cardId);
     expect(before.totalImpressions).toBeGreaterThan(0);
-
-    // Calling again must produce the exact same numbers — no side effects.
-    const after = getVisitTotals(db, cardId);
+    const after = await getVisitTotals(db, cardId);
     expect(after).toEqual(before);
   });
 
-  it('returns zeros for an unknown cardId', () => {
-    expect(getVisitTotals(db, 'nope-no-such-card')).toEqual({
+  it('returns zeros for an unknown cardId', async () => {
+    expect(await getVisitTotals(db, 'nope-no-such-card')).toEqual({
       totalImpressions: 0,
       uniqueVisits: 0,
     });

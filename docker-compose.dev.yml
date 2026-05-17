@@ -1,7 +1,7 @@
-# Development compose — runs api (:3001) and web (:5173) inside containers
-# with the source bind-mounted for hot reload. Use this only when you want
-# containerized dev parity; the spec's preferred path remains
-# `bun run dev` on the host.
+# Development compose — runs postgres, api (:3001) and web (:5173) inside
+# containers with the source bind-mounted for hot reload. Use this only when
+# you want containerized dev parity; the preferred path remains `bun run dev`
+# on the host (against a local or remote Postgres).
 #
 #   docker compose -f docker-compose.dev.yml up
 #   open http://localhost:5173
@@ -10,14 +10,33 @@
 # Notes:
 # - node_modules is excluded from the bind via a named volume so Alpine
 #   linux installs don't clobber the host's macOS/Linux installs.
-# - DATABASE_PATH points into the shared dev-data named volume so api
-#   container restarts preserve the DB.
-# - The api container runs seed on first start, then `bun --hot` so source
-#   edits hot-reload. Schema migrations are applied inline by the API at
-#   startup (see runStartupMigrations in apps/api/src/index.ts), so the
-#   compose command no longer needs a separate migrate step.
+# - Postgres is exposed on host port 5434 (not 5432) to avoid conflicts
+#   with a local postgres install. Data persists in the `dev-pg` volume.
+# - The api container waits for postgres to be healthy, runs seed on
+#   first start, then `bun --hot` so source edits hot-reload. Schema
+#   migrations are applied inline by the API at startup (see
+#   runStartupMigrations in apps/api/src/index.ts), so the compose
+#   command no longer needs a separate migrate step.
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kolezka-cards-dev-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kc
+      POSTGRES_PASSWORD: kc_dev
+      POSTGRES_DB: kc_dev
+    ports:
+      - '5434:5432'
+    volumes:
+      - dev-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kc -d kc_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   api:
     image: oven/bun:1.3.10-alpine
     container_name: kolezka-cards-dev-api
@@ -31,13 +50,15 @@ services:
     environment:
       APP_SECRET: dev_only_secret_replace_in_prod_5fbe1c2e3a4d6f7889ab1234cdef5678
       BASE_URL: http://localhost:3001
-      DATABASE_PATH: /data/app.db
+      DATABASE_URL: postgresql://kc:kc_dev@postgres:5432/kc_dev
       NODE_ENV: development
       PORT: '3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
       - .:/app
       - dev-node-modules:/app/node_modules
-      - dev-data:/data
 
   web:
     image: oven/bun:1.3.10-alpine
@@ -59,4 +80,4 @@ services:
 
 volumes:
   dev-node-modules:
-  dev-data:
+  dev-pg:

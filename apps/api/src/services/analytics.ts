@@ -75,13 +75,13 @@ export interface QueryAnalyticsInput {
   now?: Date;
 }
 
-export function queryAnalytics(db: DB, input: QueryAnalyticsInput): AnalyticsResult {
+export async function queryAnalytics(db: DB, input: QueryAnalyticsInput): Promise<AnalyticsResult> {
   const now = input.now ?? new Date();
   const range = input.range ?? '7d';
   const startMs = rangeStartMs(range, now);
   const startHour = Math.floor(startMs / HOUR_MS);
 
-  const seriesRows = db
+  const seriesRows = await db
     .select({
       hourBucket: schema.impressionBuckets.hourBucket,
       totalImpressions: schema.impressionBuckets.totalImpressions,
@@ -95,8 +95,7 @@ export function queryAnalytics(db: DB, input: QueryAnalyticsInput): AnalyticsRes
         eq(schema.impressionBuckets.cardId, input.cardId),
         gte(schema.impressionBuckets.hourBucket, startHour),
       ),
-    )
-    .all();
+    );
 
   const totals = seriesRows.reduce(
     (acc, r) => ({
@@ -116,51 +115,50 @@ export function queryAnalytics(db: DB, input: QueryAnalyticsInput): AnalyticsRes
           gte(schema.visits.createdAt, new Date(startMs)),
         );
 
-  const referrers = db
+  const referrersRows = await db
     .select({
       host: schema.visits.referrerHost,
       count: sql<number>`count(*)`,
     })
     .from(schema.visits)
     .where(visitWhere)
-    .groupBy(schema.visits.referrerHost)
-    .all()
+    .groupBy(schema.visits.referrerHost);
+  const referrers = referrersRows
     .map((r) => ({ host: r.host, count: Number(r.count) }))
     .sort((a, b) => b.count - a.count);
 
-  const countries = db
+  const countriesRows = await db
     .select({
       country: schema.visits.country,
       count: sql<number>`count(*)`,
     })
     .from(schema.visits)
     .where(visitWhere)
-    .groupBy(schema.visits.country)
-    .all()
+    .groupBy(schema.visits.country);
+  const countries = countriesRows
     .map((r) => ({ country: r.country, count: Number(r.count) }))
     .sort((a, b) => b.count - a.count);
 
-  const userAgents = db
+  const userAgentRows = await db
     .select({
       family: schema.visits.userAgentFamily,
       count: sql<number>`count(*)`,
     })
     .from(schema.visits)
     .where(visitWhere)
-    .groupBy(schema.visits.userAgentFamily)
-    .all()
+    .groupBy(schema.visits.userAgentFamily);
+  const userAgents = userAgentRows
     .map((r) => ({ family: r.family, count: Number(r.count) }))
     .sort((a, b) => b.count - a.count);
 
-  const sourceRows = db
+  const sourceRows = await db
     .select({
       viaCamo: schema.visits.viaCamo,
       count: sql<number>`count(*)`,
     })
     .from(schema.visits)
     .where(visitWhere)
-    .groupBy(schema.visits.viaCamo)
-    .all();
+    .groupBy(schema.visits.viaCamo);
   const sources: Array<{ source: 'direct' | 'camo'; count: number }> = sourceRows
     .map((r) => ({
       source: r.viaCamo ? ('camo' as const) : ('direct' as const),
@@ -168,9 +166,11 @@ export function queryAnalytics(db: DB, input: QueryAnalyticsInput): AnalyticsRes
     }))
     .sort((a, b) => b.count - a.count);
 
-  const dowExpr = sql<number>`CAST(strftime('%w', ${schema.visits.createdAt} / 1000, 'unixepoch') AS INTEGER)`;
-  const hourExpr = sql<number>`CAST(strftime('%H', ${schema.visits.createdAt} / 1000, 'unixepoch') AS INTEGER)`;
-  const heatmapRows = db
+  // Postgres EXTRACT(DOW) — 0 = Sunday, 6 = Saturday, matching the SQLite
+  // strftime('%w', ...) the previous implementation relied on.
+  const dowExpr = sql<number>`EXTRACT(DOW FROM ${schema.visits.createdAt} AT TIME ZONE 'UTC')::int`;
+  const hourExpr = sql<number>`EXTRACT(HOUR FROM ${schema.visits.createdAt} AT TIME ZONE 'UTC')::int`;
+  const heatmapRows = await db
     .select({
       dow: dowExpr,
       hour: hourExpr,
@@ -178,8 +178,7 @@ export function queryAnalytics(db: DB, input: QueryAnalyticsInput): AnalyticsRes
     })
     .from(schema.visits)
     .where(visitWhere)
-    .groupBy(dowExpr, hourExpr)
-    .all();
+    .groupBy(dowExpr, hourExpr);
   const heatmap: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
   for (const r of heatmapRows) {
     const d = Number(r.dow);
