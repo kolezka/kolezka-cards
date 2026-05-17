@@ -1,14 +1,16 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: docker/postgres.Dockerfile
+    image: kolezka-cards-pg:latest
     container_name: kolezka-cards-pg
     restart: unless-stopped
     environment:
-      # Hardcoded — don't depend on env-file substitution (Coolify can inject
-      # empty values that defeat `${VAR:-default}` semantics). The only
-      # required user input is the password.
-      POSTGRES_USER: kc
-      POSTGRES_DB: kc_cards
+      # POSTGRES_USER=kc and POSTGRES_DB=kc_cards are baked into the
+      # custom image (docker/postgres.Dockerfile) so they don't surface
+      # in Coolify's env tab as "deletable but required" constants.
+      # Only the password ever needs to be configured by the operator.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your env}
     volumes:
       - app-pg:/var/lib/postgresql/data
