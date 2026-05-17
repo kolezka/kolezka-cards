@@ -58,16 +58,18 @@
     position: sticky;
     top: 12px;
     z-index: 50;
-    /* Pill hugs its contents (logo + nav). Capped so it never overflows
-       the viewport on small screens. `display: flex` is block-level so
+    /* Desktop: full container width to match <main> (max 1100px) with the
+       same 24px side gutters. Logo flush-left, nav flush-right via
+       justify-content: space-between. `display: flex` is block-level so
        `margin: 0 auto` actually centers it — `inline-flex` would stick
        to the left edge because inline boxes ignore auto margins. */
-    width: fit-content;
-    max-width: calc(100% - 24px);
+    width: calc(100% - 48px);
+    max-width: 1100px;
     margin: 12px auto 0;
     padding: 6px 10px 6px 12px;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 10px;
     background: var(--glass-2);
     border: 1px solid var(--ring-soft);
