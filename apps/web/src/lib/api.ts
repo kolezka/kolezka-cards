@@ -3,6 +3,34 @@ export interface Me {
   githubId: number;
   login: string;
   avatarUrl: string | null;
+  isAdmin: boolean;
+}
+
+export interface AdminUser {
+  id: string;
+  githubId: number;
+  login: string;
+  avatarUrl: string | null;
+  createdAt: string;
+  cardCount: number;
+}
+
+export interface AdminCard {
+  id: string;
+  slug: string;
+  type: string;
+  theme: string;
+  ownerLogin: string;
+  url: string;
+  createdAt: string;
+  updatedAt: string;
+  totalImpressions: number;
+  uniqueVisits: number;
+}
+
+export interface AdminUserCards {
+  user: { id: string; login: string };
+  cards: AdminCard[];
 }
 
 export interface CardSummary {
@@ -81,4 +109,12 @@ export const api = {
   analytics: (id: string, range: AnalyticsResult['range']) =>
     request<AnalyticsResult>(`/api/cards/${id}/analytics?range=${range}`),
   logout: () => request<{ ok: true }>('/auth/logout', { method: 'POST' }),
+  admin: {
+    listUsers: () => request<AdminUser[]>('/api/admin/users'),
+    listUserCards: (userId: string) => request<AdminUserCards>(`/api/admin/users/${userId}/cards`),
+    deleteCard: (cardId: string) =>
+      request<{ ok: true }>(`/api/admin/cards/${cardId}`, { method: 'DELETE' }),
+    deleteUser: (userId: string) =>
+      request<{ ok: true }>(`/api/admin/users/${userId}`, { method: 'DELETE' }),
+  },
 };

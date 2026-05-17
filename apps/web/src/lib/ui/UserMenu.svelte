@@ -84,6 +84,12 @@
         <span class="ico" aria-hidden="true">▦</span>
         Cards
       </a>
+      {#if me.isAdmin}
+        <a class="item" role="menuitem" href="/app/admin" onclick={close}>
+          <span class="ico" aria-hidden="true">★</span>
+          Admin
+        </a>
+      {/if}
       <button class="item" type="button" role="menuitem" onclick={logout}>
         <span class="ico" aria-hidden="true">⇥</span>
         Logout

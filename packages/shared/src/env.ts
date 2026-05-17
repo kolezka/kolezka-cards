@@ -12,6 +12,12 @@ const EnvSchema = z
     GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
     SENTRY_DSN: z.string().url().optional(),
     WEB_BUILD_DIR: z.string().optional(),
+    /**
+     * Comma-separated GitHub logins granted admin access. Optional; if unset
+     * or empty no user is an admin. Matched case-insensitively against
+     * `users.login`.
+     */
+    ADMIN_LOGINS: z.string().optional(),
   })
   .superRefine((env, ctx) => {
     const idSet = Boolean(env.GITHUB_CLIENT_ID);
@@ -39,4 +45,19 @@ export function loadEnv(source: Record<string, string | undefined> = Bun.env): E
 
 export function oauthConfigured(env: Env): boolean {
   return Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET);
+}
+
+export function parseAdminLogins(raw: string | undefined | null): Set<string> {
+  if (!raw) return new Set();
+  const out = new Set<string>();
+  for (const part of raw.split(',')) {
+    const trimmed = part.trim().toLowerCase();
+    if (trimmed) out.add(trimmed);
+  }
+  return out;
+}
+
+export function isAdminLogin(env: Env, login: string | undefined | null): boolean {
+  if (!login) return false;
+  return parseAdminLogins(env.ADMIN_LOGINS).has(login.toLowerCase());
 }

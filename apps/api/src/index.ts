@@ -8,6 +8,7 @@ import { renderAbuseLimit } from './middleware/rate-limit';
 import { securityHeaders } from './middleware/security-headers';
 import { staticServe } from './middleware/static-serve';
 import { captureError, initSentry } from './observability/sentry';
+import { createAdminRoute } from './routes/admin';
 import { createAnalyticsRoute } from './routes/analytics';
 import { createAuthRoute } from './routes/auth';
 import { createCardsRoute } from './routes/cards';
@@ -71,6 +72,7 @@ app.route('/', createAuthRoute(db, env));
 app.route('/', createMeRoute(db, env));
 app.route('/', createCardsRoute(db, env));
 app.route('/', createAnalyticsRoute(db, env));
+app.route('/', createAdminRoute(db, env));
 app.route('/', createDevAnalyticsRoute(db));
 
 if (env.WEB_BUILD_DIR) {

@@ -1,5 +1,5 @@
 import type { DB } from '@kc/db';
-import type { Env } from '@kc/shared/env';
+import { type Env, isAdminLogin } from '@kc/shared/env';
 import { Hono } from 'hono';
 import { type SessionContext, requireSession } from '../middleware/session';
 
@@ -13,6 +13,7 @@ export function createMeRoute(db: DB, env: Env): Hono<SessionContext> {
       githubId: u.githubId,
       login: u.login,
       avatarUrl: u.avatarUrl,
+      isAdmin: isAdminLogin(env, u.login),
     });
   });
   return app;
