@@ -19,7 +19,7 @@
       kolezka-cards (<a href="https://ghcards.raqz.link">ghcards.raqz.link</a>) is designed to give
       card owners useful visit analytics without tracking individual readers across days.
     </p>
-    <p class="updated">Last updated: 2026-05-16</p>
+    <p class="updated">Last updated: 2026-05-17</p>
   </header>
 
   <Glass tier={2} rounded="lg" padding="lg" as="section" class="prose">
@@ -97,7 +97,11 @@
         No cross-day identifiers — the daily salt rotation deliberately breaks correlation between
         a return visitor on different days.
       </li>
-      <li>No third-party analytics, advertising, or tracking pixels.</li>
+      <li>
+        No advertising, no tracking pixels, no third-party cookies. Aggregate
+        (cookieless) Cloudflare Web Analytics runs on the dashboard pages only —
+        see <a href="#sub-processors">Section 8</a>.
+      </li>
     </ul>
 
     <h2>5. Cookies</h2>
@@ -132,13 +136,20 @@
       </li>
     </ul>
 
-    <h2>8. Sub-processors</h2>
+    <h2 id="sub-processors">8. Sub-processors</h2>
     <p>The service is built on the following infrastructure and external services:</p>
     <ul>
       <li>The hosting provider that serves <code>ghcards.raqz.link</code>.</li>
       <li>
         <strong>Cloudflare</strong> — CDN/proxy, supplies the country code via the
-        <code>CF-IPCountry</code> header.
+        <code>CF-IPCountry</code> header. We also use
+        <strong>Cloudflare Web Analytics</strong> on the dashboard pages
+        (<code>ghcards.raqz.link</code>): a cookieless beacon that records aggregated
+        pageviews, referrers, country, browser, and Core Web Vitals. No cookies, no
+        cross-site tracking, no advertising identifiers — see
+        <a href="https://www.cloudflare.com/web-analytics/" rel="noopener">Cloudflare's
+          documentation</a>. The beacon is not loaded on the embedded SVG endpoint
+        (<code>/c/&lt;user&gt;/&lt;slug&gt;.svg</code>); only the HTML pages.
       </li>
       <li>
         <strong>GitHub</strong> — OAuth provider; the service calls

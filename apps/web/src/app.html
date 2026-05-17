@@ -7,6 +7,23 @@
     <meta name="robots" content="noindex" />
     <title>kolezka-cards</title>
     %sveltekit.head%
+
+    <!-- Cloudflare Web Analytics — cookieless, no PII collected. Loaded only
+         on the production hostname so localhost / preview deploys don't
+         pollute the metrics. Documented as a sub-processor in /privacy. -->
+    <script>
+      (function () {
+        if (location.hostname !== 'ghcards.raqz.link') return;
+        var s = document.createElement('script');
+        s.defer = true;
+        s.src = 'https://static.cloudflareinsights.com/beacon.min.js';
+        s.setAttribute(
+          'data-cf-beacon',
+          '{"token": "e7a3a4a2b03e4c92a0e6c982834a8b78"}'
+        );
+        document.head.appendChild(s);
+      })();
+    </script>
   </head>
   <body data-sveltekit-preload-data="hover">
     <div style="display: contents">%sveltekit.body%</div>
