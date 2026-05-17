@@ -1,4 +1,21 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kolezka-cards-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changemepostgres}
+      POSTGRES_DB: ${POSTGRES_DB:-kc_cards}
+    volumes:
+      - app-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER:-kc} -d $${POSTGRES_DB:-kc_cards}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   app:
     build:
       context: .
@@ -13,18 +30,22 @@ services:
       BASE_URL: ${BASE_URL:-https://cards.example.com}
       NODE_ENV: production
       PORT: '3000'
-      # Either inject DATABASE_URL directly (Coolify's preferred form) or
-      # provide the POSTGRES_* bundle below and let the app compose the URL.
-      DATABASE_URL: ${DATABASE_URL}
-      POSTGRES_HOST: ${POSTGRES_HOST}
-      POSTGRES_PORT: ${POSTGRES_PORT}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      # If you set DATABASE_URL it takes precedence and the POSTGRES_* below
+      # are ignored. Default below points at the bundled `postgres` service.
+      # On Coolify with an external managed PG, just override DATABASE_URL.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-kc}:${POSTGRES_PASSWORD:-changemepostgres}@postgres:5432/${POSTGRES_DB:-kc_cards}}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-kc}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changemepostgres}
+      POSTGRES_DB: ${POSTGRES_DB:-kc_cards}
       WEB_BUILD_DIR: /app/apps/web/build
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       ADMIN_LOGINS: ${ADMIN_LOGINS}
+    depends_on:
+      postgres:
+        condition: service_healthy
     healthcheck:
       test:
         - CMD
@@ -34,4 +55,7 @@ services:
       interval: 60s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 15s
+
+volumes:
+  app-pg:
