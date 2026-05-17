@@ -30,10 +30,10 @@ services:
       BASE_URL: ${BASE_URL:-https://cards.example.com}
       NODE_ENV: production
       PORT: '3000'
-      # If you set DATABASE_URL it takes precedence and the POSTGRES_* below
-      # are ignored. Default below points at the bundled `postgres` service.
-      # On Coolify with an external managed PG, just override DATABASE_URL.
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-kc}:${POSTGRES_PASSWORD:-changemepostgres}@postgres:5432/${POSTGRES_DB:-kc_cards}}
+      # The app composes its connection string from the POSTGRES_* vars
+      # below (see resolveDatabaseUrl). To point at an external managed
+      # PG (e.g. on Coolify), either override these or set DATABASE_URL
+      # — DATABASE_URL takes precedence when set.
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       POSTGRES_USER: ${POSTGRES_USER:-kc}

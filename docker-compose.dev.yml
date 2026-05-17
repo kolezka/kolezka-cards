@@ -50,7 +50,12 @@ services:
     environment:
       APP_SECRET: dev_only_secret_replace_in_prod_5fbe1c2e3a4d6f7889ab1234cdef5678
       BASE_URL: http://localhost:3001
-      DATABASE_URL: postgresql://kc:kc_dev@postgres:5432/kc_dev
+      # App composes DATABASE_URL from these — matches the postgres service block above.
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: '5432'
+      POSTGRES_USER: kc
+      POSTGRES_PASSWORD: kc_dev
+      POSTGRES_DB: kc_dev
       NODE_ENV: development
       PORT: '3001'
     depends_on:
