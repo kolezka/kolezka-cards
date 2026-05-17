@@ -1,5 +1,26 @@
 import { z } from 'zod';
 
+/**
+ * Coolify (and most env-file UIs) render unset fields as `KEY=` (empty),
+ * not as absent. Treat empty strings as undefined for optional fields so
+ * a blank box in the dashboard behaves the same as not setting the var
+ * at all.
+ */
+const emptyToUndefined = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  z.string().optional(),
+);
+
+const optionalUrl = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  z.string().url().optional(),
+);
+
+const optionalNumericString = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  z.string().regex(/^\d+$/).optional(),
+);
+
 const EnvSchema = z
   .object({
     APP_SECRET: z
@@ -7,29 +28,27 @@ const EnvSchema = z
       .min(32, 'APP_SECRET must be at least 32 characters (32+ random bytes hex-encoded)'),
     BASE_URL: z.string().url(),
     /**
-     * Canonical Postgres connection string. If unset, the API composes one
-     * from POSTGRES_HOST / POSTGRES_PORT / POSTGRES_USER / POSTGRES_PASSWORD
-     * / POSTGRES_DB (see {@link resolveDatabaseUrl}). Either form is fine —
-     * Coolify can either inject a single DATABASE_URL or the individual
-     * service-variable bundle.
+     * Canonical Postgres connection string. If unset (or empty), the API
+     * composes one from POSTGRES_HOST / POSTGRES_PORT / POSTGRES_USER /
+     * POSTGRES_PASSWORD / POSTGRES_DB (see {@link resolveDatabaseUrl}).
      */
-    DATABASE_URL: z.string().min(1).optional(),
-    POSTGRES_HOST: z.string().min(1).optional(),
-    POSTGRES_PORT: z.string().regex(/^\d+$/).optional(),
-    POSTGRES_USER: z.string().min(1).optional(),
-    POSTGRES_PASSWORD: z.string().min(1).optional(),
-    POSTGRES_DB: z.string().min(1).optional(),
+    DATABASE_URL: emptyToUndefined,
+    POSTGRES_HOST: emptyToUndefined,
+    POSTGRES_PORT: optionalNumericString,
+    POSTGRES_USER: emptyToUndefined,
+    POSTGRES_PASSWORD: emptyToUndefined,
+    POSTGRES_DB: emptyToUndefined,
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-    GITHUB_CLIENT_ID: z.string().min(1).optional(),
-    GITHUB_CLIENT_SECRET: z.string().min(1).optional(),
-    SENTRY_DSN: z.string().url().optional(),
-    WEB_BUILD_DIR: z.string().optional(),
+    GITHUB_CLIENT_ID: emptyToUndefined,
+    GITHUB_CLIENT_SECRET: emptyToUndefined,
+    SENTRY_DSN: optionalUrl,
+    WEB_BUILD_DIR: emptyToUndefined,
     /**
      * Comma-separated GitHub logins granted admin access. Optional; if unset
      * or empty no user is an admin. Matched case-insensitively against
      * `users.login`.
      */
-    ADMIN_LOGINS: z.string().optional(),
+    ADMIN_LOGINS: emptyToUndefined,
   })
   .superRefine((env, ctx) => {
     const idSet = Boolean(env.GITHUB_CLIENT_ID);
