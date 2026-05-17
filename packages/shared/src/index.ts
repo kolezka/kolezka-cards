@@ -33,5 +33,6 @@ export {
   type FollowersSparklineData,
   type FollowersPoint,
 } from './svg/followers-sparkline';
+export { renderProfileViews, type ProfileViewsData } from './svg/profile-views';
 export * from './zod/card-config';
 export * from './zod/query-overrides';

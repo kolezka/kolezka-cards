@@ -21,6 +21,7 @@
     "./svg/gist-counter": "./src/svg/gist-counter.ts",
     "./svg/wakatime": "./src/svg/wakatime.ts",
     "./svg/followers-sparkline": "./src/svg/followers-sparkline.ts",
+    "./svg/profile-views": "./src/svg/profile-views.ts",
     "./zod/card-config": "./src/zod/card-config.ts",
     "./zod/query-overrides": "./src/zod/query-overrides.ts"
   },

@@ -11,6 +11,7 @@ export type ThemeName = (typeof THEME_NAMES)[number];
 
 export const CARD_TYPES = [
   'visit-counter',
+  'profile-views',
   'profile-stats',
   'repo-stats',
   'streak',
@@ -27,6 +28,8 @@ export function defaultConfigFor(type: CardType, theme: ThemeName = 'github_dark
   switch (type) {
     case 'visit-counter':
       return { type, theme, title: 'Visits', show: { total: true, unique: true } };
+    case 'profile-views':
+      return { type, theme, title: 'Profile views', metric: 'total' };
     case 'profile-stats':
       return { type, theme, show: { languages: true, commitGraph: false } };
     case 'repo-stats':

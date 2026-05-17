@@ -8,7 +8,7 @@
 <h1 align="center">kolezka-cards</h1>
 
 <p align="center">
-  Dynamic SVG cards for GitHub READMEs — <strong>10 card types</strong>, privacy-preserving per-card analytics, Apple liquid-glass dashboard, self-hosted in a single container.
+  Dynamic SVG cards for GitHub READMEs — <strong>11 card types</strong>, privacy-preserving per-card analytics, Apple liquid-glass dashboard, self-hosted in a single container.
   <br />
   <a href="https://ghcards.raqz.link"><strong>Live site →</strong></a>
   &nbsp;·&nbsp;
@@ -44,6 +44,7 @@ Sign in with GitHub, configure size / theme / period / per-type options in the d
 | Type | What it shows | Notable config |
 | --- | --- | --- |
 | `visit-counter` | Total impressions + unique visits to itself | `show.total`, `show.unique` |
+| `profile-views` | Compact 220×40 badge with a single view count (defaults to "Profile views") | `metric` (`total`/`unique`) |
 | `profile-stats` | Followers · public repos · top languages | `show.languages` |
 | `repo-stats` | Stars · forks · language breakdown | `repo: owner/name` |
 | `streak` | Current + longest contribution streak (scraped from contributions graph) | — |

@@ -14,7 +14,7 @@ export const QueryOverridesSchema = z
     border: HexColor.optional(),
     hide: z.string().optional(),
     w: z.coerce.number().int().min(200).max(1200).optional(),
-    h: z.coerce.number().int().min(80).max(600).optional(),
+    h: z.coerce.number().int().min(32).max(600).optional(),
     period: z.enum(['1m', '3m', '6m', '1y', '2y', 'all']).optional(),
     days: z.coerce.number().int().min(7).max(1825).optional(),
   })

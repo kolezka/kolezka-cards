@@ -8,6 +8,7 @@ import { renderGistCounter } from '@kc/shared/svg/gist-counter';
 import { renderLanguages } from '@kc/shared/svg/languages';
 import { renderProfileStats } from '@kc/shared/svg/profile-stats';
 import { renderProfileSummary } from '@kc/shared/svg/profile-summary';
+import { renderProfileViews } from '@kc/shared/svg/profile-views';
 import { renderRepoStats } from '@kc/shared/svg/repo-stats';
 import { renderStreak } from '@kc/shared/svg/streak';
 import { renderTopRepos } from '@kc/shared/svg/top-repos';
@@ -20,6 +21,7 @@ import {
   LanguagesConfig,
   ProfileStatsConfig,
   ProfileSummaryConfig,
+  ProfileViewsConfig,
   RepoStatsConfig,
   StreakConfig,
   TopReposConfig,
@@ -189,6 +191,13 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
             },
             pickDims(parsed, query),
           );
+          break;
+        }
+        case 'profile-views': {
+          const cfg = applyQueryOverrides(config, query);
+          const parsed = ProfileViewsConfig.parse(cfg);
+          const views = parsed.metric === 'unique' ? visit.uniqueVisits : visit.totalImpressions;
+          svg = renderProfileViews(parsed, { views }, pickDims(parsed, query));
           break;
         }
         case 'profile-stats': {

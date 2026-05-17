@@ -37,10 +37,10 @@ describe('CardSize on CardBase', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects height below 80', () => {
+  it('rejects height below 32', () => {
     const result = VisitCounterConfig.safeParse({
       type: 'visit-counter',
-      size: { height: 40 },
+      size: { height: 16 },
     });
     expect(result.success).toBe(false);
   });

@@ -20,7 +20,7 @@ const ThemeOverrides = z
 const CardSize = z
   .object({
     width: z.number().int().min(200).max(1200).optional(),
-    height: z.number().int().min(80).max(600).optional(),
+    height: z.number().int().min(32).max(600).optional(),
   })
   .strict();
 
@@ -41,6 +41,16 @@ export const VisitCounterConfig = CardBase.extend({
       unique: z.boolean().default(true),
     })
     .default({ total: true, unique: true }),
+});
+
+/**
+ * Compact badge-style card that shows a single profile-view count.
+ * Same impression-bucket data as visit-counter, just one number rendered
+ * in a small (~220x40) shield-style SVG suitable for a README header.
+ */
+export const ProfileViewsConfig = CardBase.extend({
+  type: z.literal('profile-views'),
+  metric: z.enum(['total', 'unique']).default('total'),
 });
 
 export const ProfileStatsConfig = CardBase.extend({
@@ -137,6 +147,7 @@ export const CardConfig = z.discriminatedUnion('type', [
   GistCounterConfig,
   WakatimeConfig,
   FollowersSparklineConfig,
+  ProfileViewsConfig,
 ]);
 
 export type CardConfig = z.infer<typeof CardConfig>;
@@ -150,3 +161,4 @@ export type TopReposConfig = z.infer<typeof TopReposConfig>;
 export type GistCounterConfig = z.infer<typeof GistCounterConfig>;
 export type WakatimeConfig = z.infer<typeof WakatimeConfig>;
 export type FollowersSparklineConfig = z.infer<typeof FollowersSparklineConfig>;
+export type ProfileViewsConfig = z.infer<typeof ProfileViewsConfig>;

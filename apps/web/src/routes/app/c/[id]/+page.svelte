@@ -190,6 +190,22 @@
         </fieldset>
       {/if}
 
+      {#if card.type === 'profile-views'}
+        <GlassSelect
+          value={(cfg as unknown as { metric?: string }).metric ?? 'total'}
+          label="Metric"
+          options={[
+            { value: 'total', label: 'Total impressions' },
+            { value: 'unique', label: 'Unique visits' },
+          ]}
+          onchange={(e) => {
+            (cfg as unknown as { metric: string }).metric = (
+              e.target as HTMLSelectElement
+            ).value;
+          }}
+        />
+      {/if}
+
       {#if card.type === 'profile-stats' && cfg.show}
         <fieldset>
           <legend>Show</legend>
