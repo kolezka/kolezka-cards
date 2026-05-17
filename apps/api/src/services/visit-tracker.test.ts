@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { dirname } from 'node:path';
 import * as schema from '@kc/db/schema';
+import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/bun-sqlite';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import { nanoid } from 'nanoid';
@@ -54,6 +55,7 @@ describe('trackVisit', () => {
       country: 'PL',
       referrerHost: 'github.com',
       userAgentFamily: 'firefox',
+      viaCamo: false,
     });
     expect(r.wasUnique).toBe(true);
     expect(r.totalImpressions).toBe(1);
@@ -67,6 +69,7 @@ describe('trackVisit', () => {
       country: 'PL',
       referrerHost: 'github.com',
       userAgentFamily: 'firefox',
+      viaCamo: false,
     });
     expect(r.wasUnique).toBe(false);
     expect(r.totalImpressions).toBe(2);
@@ -80,6 +83,7 @@ describe('trackVisit', () => {
       country: 'DE',
       referrerHost: null,
       userAgentFamily: 'chrome',
+      viaCamo: false,
     });
     expect(r.wasUnique).toBe(true);
     expect(r.totalImpressions).toBe(3);
@@ -94,6 +98,7 @@ describe('trackVisit', () => {
       country: null,
       referrerHost: null,
       userAgentFamily: null,
+      viaCamo: false,
       now: longAgo,
     });
     expect(r1.wasUnique).toBe(true);
@@ -104,8 +109,111 @@ describe('trackVisit', () => {
       country: null,
       referrerHost: null,
       userAgentFamily: null,
+      viaCamo: false,
     });
     expect(r2.wasUnique).toBe(true);
+  });
+
+  it('persists viaCamo flag on the visit row and routes impressions correctly', () => {
+    // Use a dedicated card so we can assert exact counter values
+    // without interference from the shared-card tests above.
+    const camoCardId = nanoid(12);
+    db.insert(schema.cards)
+      .values({
+        id: camoCardId,
+        userId,
+        slug: 'camo-card',
+        type: 'visit-counter',
+        configJson: { type: 'visit-counter' },
+      })
+      .run();
+
+    // First: a Camo-proxied visit. Goes into camo_impressions only.
+    trackVisit(db, {
+      cardId: camoCardId,
+      fingerprintHash: 'camo-fp-1',
+      country: 'US',
+      referrerHost: null,
+      userAgentFamily: 'camo',
+      viaCamo: true,
+    });
+    // Second: a direct visit with a different fingerprint. Goes into direct_impressions.
+    trackVisit(db, {
+      cardId: camoCardId,
+      fingerprintHash: 'direct-fp-1',
+      country: 'PL',
+      referrerHost: 'github.com',
+      userAgentFamily: 'chrome',
+      viaCamo: false,
+    });
+
+    const rows = db
+      .select({
+        fp: schema.visits.fingerprintHash,
+        viaCamo: schema.visits.viaCamo,
+      })
+      .from(schema.visits)
+      .where(eq(schema.visits.cardId, camoCardId))
+      .all();
+    expect(rows.find((r) => r.fp === 'camo-fp-1')?.viaCamo).toBe(true);
+    expect(rows.find((r) => r.fp === 'direct-fp-1')?.viaCamo).toBe(false);
+
+    const bucket = db
+      .select({
+        total: schema.impressionBuckets.totalImpressions,
+        direct: schema.impressionBuckets.directImpressions,
+        camo: schema.impressionBuckets.camoImpressions,
+      })
+      .from(schema.impressionBuckets)
+      .where(eq(schema.impressionBuckets.cardId, camoCardId))
+      .get();
+    expect(bucket?.total).toBe(2);
+    expect(bucket?.direct).toBe(1);
+    expect(bucket?.camo).toBe(1);
+  });
+
+  it('dedups a repeat Camo fingerprint without inflating uniques', () => {
+    const dedupCardId = nanoid(12);
+    db.insert(schema.cards)
+      .values({
+        id: dedupCardId,
+        userId,
+        slug: 'camo-dedup',
+        type: 'visit-counter',
+        configJson: { type: 'visit-counter' },
+      })
+      .run();
+
+    trackVisit(db, {
+      cardId: dedupCardId,
+      fingerprintHash: 'dup-fp',
+      country: 'US',
+      referrerHost: null,
+      userAgentFamily: 'camo',
+      viaCamo: true,
+    });
+    const r = trackVisit(db, {
+      cardId: dedupCardId,
+      fingerprintHash: 'dup-fp',
+      country: 'US',
+      referrerHost: null,
+      userAgentFamily: 'camo',
+      viaCamo: true,
+    });
+    expect(r.wasUnique).toBe(false);
+    expect(r.totalImpressions).toBe(2);
+    expect(r.uniqueVisits).toBe(1);
+
+    const bucket = db
+      .select({
+        direct: schema.impressionBuckets.directImpressions,
+        camo: schema.impressionBuckets.camoImpressions,
+      })
+      .from(schema.impressionBuckets)
+      .where(eq(schema.impressionBuckets.cardId, dedupCardId))
+      .get();
+    expect(bucket?.direct).toBe(0);
+    expect(bucket?.camo).toBe(2);
   });
 });
 

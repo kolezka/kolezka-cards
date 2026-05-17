@@ -19,11 +19,17 @@ export interface CardSummary {
 
 export interface AnalyticsResult {
   range: '24h' | '7d' | '30d' | 'all';
-  totals: { totalImpressions: number; uniqueVisits: number };
+  totals: {
+    totalImpressions: number;
+    uniqueVisits: number;
+    directImpressions: number;
+    camoImpressions: number;
+  };
   series: Array<{ hourBucket: number; totalImpressions: number; uniqueVisits: number }>;
   referrers: Array<{ host: string | null; count: number }>;
   countries: Array<{ country: string | null; count: number }>;
   userAgents: Array<{ family: string | null; count: number }>;
+  sources: Array<{ source: 'direct' | 'camo'; count: number }>;
   heatmap: number[][];
 }
 

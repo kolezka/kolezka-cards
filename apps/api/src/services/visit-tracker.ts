@@ -13,6 +13,7 @@ export interface VisitInput {
   country: string | null;
   referrerHost: string | null;
   userAgentFamily: string | null;
+  viaCamo: boolean;
   now?: Date;
 }
 
@@ -52,6 +53,7 @@ export function trackVisit(db: DB, input: VisitInput): VisitResult {
         country: input.country,
         referrerHost: input.referrerHost,
         userAgentFamily: input.userAgentFamily,
+        viaCamo: input.viaCamo,
         createdAt: now,
       })
       .run();
@@ -63,6 +65,8 @@ export function trackVisit(db: DB, input: VisitInput): VisitResult {
       hourBucket,
       totalImpressions: 1,
       uniqueVisits: wasUnique ? 1 : 0,
+      directImpressions: input.viaCamo ? 0 : 1,
+      camoImpressions: input.viaCamo ? 1 : 0,
     })
     .onConflictDoUpdate({
       target: [schema.impressionBuckets.cardId, schema.impressionBuckets.hourBucket],
@@ -71,6 +75,12 @@ export function trackVisit(db: DB, input: VisitInput): VisitResult {
         uniqueVisits: wasUnique
           ? sql`${schema.impressionBuckets.uniqueVisits} + 1`
           : schema.impressionBuckets.uniqueVisits,
+        directImpressions: input.viaCamo
+          ? schema.impressionBuckets.directImpressions
+          : sql`${schema.impressionBuckets.directImpressions} + 1`,
+        camoImpressions: input.viaCamo
+          ? sql`${schema.impressionBuckets.camoImpressions} + 1`
+          : schema.impressionBuckets.camoImpressions,
       },
     })
     .run();

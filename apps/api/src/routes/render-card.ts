@@ -1,5 +1,5 @@
 import { type DB, schema } from '@kc/db';
-import { computeFingerprint } from '@kc/shared/fingerprint';
+import { computeFingerprint, detectCamo, truncateIp } from '@kc/shared/fingerprint';
 import {
   daysForPeriod as followersDaysForPeriod,
   renderFollowersSparkline,
@@ -152,11 +152,35 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
     const query = parseQueryOverrides(c.req.query());
 
     const headers = c.req.header();
+    const viaCamo = detectCamo({
+      userAgent: headers['user-agent'],
+      via: headers.via,
+    });
     const fingerprint = computeFingerprint(
       {
         userAgent: headers['user-agent'] ?? '',
         acceptLanguage: headers['accept-language'] ?? '',
         acceptEncoding: headers['accept-encoding'] ?? '',
+        // Client hints — present on Chromium browsers; empty on Safari/Firefox,
+        // empty when GitHub serves through Camo (Camo strips them). When they
+        // do appear, they let us tell a mobile Chrome apart from a desktop
+        // Chrome even after UA-reduction collapses the User-Agent string.
+        secChUa: headers['sec-ch-ua'],
+        secChUaMobile: headers['sec-ch-ua-mobile'],
+        secChUaPlatform: headers['sec-ch-ua-platform'],
+        // Higher-entropy hints — only sent by Chromium after we respond with
+        // a matching Accept-CH header (set below). Empty on the very first
+        // request from a given browser; populated thereafter.
+        secChUaArch: headers['sec-ch-ua-arch'],
+        secChUaBitness: headers['sec-ch-ua-bitness'],
+        secChUaModel: headers['sec-ch-ua-model'],
+        // Low-entropy country bucket; already stored separately for analytics.
+        country: headers['cf-ipcountry'],
+        // Truncated /24 (IPv4) or /64 (IPv6) prefix of the real visitor IP.
+        // Skipped for Camo because the source IP is GitHub's pool, not the
+        // viewer's — including it would synthesize false uniqueness across
+        // different cards served through the same Camo instance.
+        ...(viaCamo ? {} : { ipPrefix: truncateIp(headers['cf-connecting-ip']) }),
       },
       env.APP_SECRET,
     );
@@ -175,6 +199,7 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
           country: headers['cf-ipcountry'] ?? null,
           referrerHost: refererHost,
           userAgentFamily: userAgentFamily(headers['user-agent']),
+          viaCamo,
         });
 
     let svg: string;
@@ -532,6 +557,10 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
     }
 
     c.header('Content-Type', 'image/svg+xml; charset=utf-8');
+    // Ask Chromium to send the higher-entropy hints on subsequent requests.
+    // Browsers cache the directive per-origin; first request from a given
+    // browser gets the legacy fingerprint, later ones get the richer one.
+    c.header('Accept-CH', 'sec-ch-ua-arch, sec-ch-ua-bitness, sec-ch-ua-model, sec-ch-ua-platform');
     return c.body(svg);
   });
 

@@ -416,9 +416,34 @@
           <Stat label="Impressions ({range})" value={analytics.totals.totalImpressions} accent />
         </Glass>
         <Glass tier={2} rounded="md" padding="md">
-          <Stat label="Unique ({range})" value={analytics.totals.uniqueVisits} accent />
+          <Stat
+            label="Unique direct viewers ({range})"
+            value={analytics.totals.uniqueVisits}
+            accent
+          />
         </Glass>
       </div>
+
+      {#if analytics.totals.directImpressions + analytics.totals.camoImpressions > 0}
+        <div class="traffic-source" title="Camo-proxied impressions cannot be deduped per viewer; only direct (non-proxied) impressions contribute to the unique counter.">
+          <span class="pill pill-direct">
+            <strong>{analytics.totals.directImpressions}</strong> direct
+          </span>
+          <span class="pill pill-camo">
+            <strong>{analytics.totals.camoImpressions}</strong> via GitHub Camo
+          </span>
+          {#if analytics.totals.totalImpressions - analytics.totals.directImpressions - analytics.totals.camoImpressions > 0}
+            <span class="pill pill-legacy">
+              <strong>
+                {analytics.totals.totalImpressions -
+                  analytics.totals.directImpressions -
+                  analytics.totals.camoImpressions}
+              </strong>
+              unclassified (pre-upgrade)
+            </span>
+          {/if}
+        </div>
+      {/if}
 
       <Glass tier={1} rounded="md" padding="md" class="chart-block">
         <Sparkline series={analytics.series} />
@@ -658,6 +683,37 @@
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 14px;
     margin-bottom: 18px;
+  }
+  .traffic-source {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: -6px 0 18px;
+    font-size: 12px;
+    cursor: help;
+  }
+  .traffic-source .pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--ring-soft);
+    background: var(--glass-2);
+    color: var(--text-2);
+  }
+  .traffic-source .pill strong {
+    color: var(--text-1);
+    font-variant-numeric: tabular-nums;
+  }
+  .traffic-source .pill-direct {
+    border-color: color-mix(in oklch, var(--accent) 40%, var(--ring-soft));
+  }
+  .traffic-source .pill-camo {
+    border-color: color-mix(in oklch, var(--text-3) 40%, var(--ring-soft));
+  }
+  .traffic-source .pill-legacy {
+    opacity: 0.7;
   }
   :global(.chart-block) {
     margin-bottom: 18px;

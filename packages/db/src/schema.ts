@@ -45,6 +45,7 @@ export const visits = sqliteTable(
     country: text('country'),
     referrerHost: text('referrer_host'),
     userAgentFamily: text('user_agent_family'),
+    viaCamo: integer('via_camo', { mode: 'boolean' }).notNull().default(false),
     createdAt: integer('created_at', { mode: 'timestamp_ms' })
       .notNull()
       .default(sql`(unixepoch() * 1000)`),
@@ -63,6 +64,11 @@ export const impressionBuckets = sqliteTable(
     hourBucket: integer('hour_bucket').notNull(),
     totalImpressions: integer('total_impressions').notNull().default(0),
     uniqueVisits: integer('unique_visits').notNull().default(0),
+    // Source split. Sum of direct+camo equals totalImpressions for buckets
+    // created after migration 0003; older buckets have both at 0 and the
+    // dashboard surfaces the split as "unknown" for them.
+    directImpressions: integer('direct_impressions').notNull().default(0),
+    camoImpressions: integer('camo_impressions').notNull().default(0),
   },
   (t) => ({
     pk: uniqueIndex('impression_buckets_pk').on(t.cardId, t.hourBucket),

@@ -46,14 +46,23 @@
     <ul>
       <li>
         A <strong>per-day fingerprint</strong> computed as
-        <code>sha256(User-Agent | Accept-Language | Accept-Encoding | daily_salt)</code> where
+        <code
+          >sha256(User-Agent | Accept-Language | Accept-Encoding | Sec-CH-UA* hints | country
+          | ip_prefix | daily_salt)</code
+        >
+        where
         <code>daily_salt = HMAC(APP_SECRET, "salt:" + UTC-date)</code> rotates at 00:00 UTC. The
         fingerprint is a one-way hash; the daily salt rotation means a return visitor on a
         following day produces a different fingerprint and cannot be linked to today's visit.
+        For traffic reaching us through GitHub's image proxy (Camo) the IP component is omitted,
+        because the proxy hides the real viewer's IP.
       </li>
       <li>
         A two-letter <strong>country code</strong> when Cloudflare provides it via the
-        <code>CF-IPCountry</code> header. We never store the visitor's IP address.
+        <code>CF-IPCountry</code> header. We never store the visitor's IP address — only a
+        coarse <strong>network prefix</strong> (first 24 bits for IPv4, first 64 for IPv6)
+        is mixed into the daily-rotating fingerprint hash and immediately discarded. The
+        prefix is not persisted, logged, or sent anywhere.
       </li>
       <li>
         A <strong>referrer host</strong> when the browser sends one. Most GitHub embeds appear as
@@ -87,7 +96,11 @@
 
     <h2>4. What we do not collect</h2>
     <ul>
-      <li>No raw IP addresses, ever.</li>
+      <li>
+        No raw IP addresses. We use a coarse network prefix (IPv4 /24, IPv6 /64) only as a
+        transient input to the daily-rotating fingerprint hash — it is never stored, logged, or
+        forwarded.
+      </li>
       <li>No User-Agent strings in logs — only a short hash.</li>
       <li>
         No cookies, localStorage, or fingerprinting libraries are set on the embedded SVG endpoint
@@ -116,7 +129,8 @@
       For analytics on the public SVG endpoint the legal basis is the legitimate interests of the
       card owner to receive aggregated impression statistics about their public README content
       (Art. 6(1)(f) GDPR). The processing is designed to be minimally identifying: no persistent
-      identifier, no IP, no cross-day correlation, no profiling.
+      identifier, no stored IP (only a transient, hashed network prefix in the daily fingerprint),
+      no cross-day correlation, no profiling.
     </p>
     <p>
       For authenticated card owners the legal basis is the performance of a contract (Art.

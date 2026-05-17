@@ -54,11 +54,26 @@ beforeAll(() => {
 
   const nowHour = Math.floor(NOW.getTime() / HOUR_MS);
   db.insert(schema.impressionBuckets)
-    .values({ cardId, hourBucket: nowHour, totalImpressions: 10, uniqueVisits: 4 })
+    .values({
+      cardId,
+      hourBucket: nowHour,
+      totalImpressions: 10,
+      uniqueVisits: 4,
+      directImpressions: 6,
+      camoImpressions: 4,
+    })
     .run();
   db.insert(schema.impressionBuckets)
-    .values({ cardId, hourBucket: nowHour - 1, totalImpressions: 5, uniqueVisits: 2 })
+    .values({
+      cardId,
+      hourBucket: nowHour - 1,
+      totalImpressions: 5,
+      uniqueVisits: 2,
+      directImpressions: 2,
+      camoImpressions: 3,
+    })
     .run();
+  // Pre-migration-style row: only totalImpressions set, split fields at 0.
   db.insert(schema.impressionBuckets)
     .values({ cardId, hourBucket: nowHour - 50, totalImpressions: 2, uniqueVisits: 1 })
     .run();
@@ -74,6 +89,7 @@ beforeAll(() => {
       country: 'PL',
       referrerHost: 'github.com',
       userAgentFamily: 'chrome',
+      viaCamo: false,
       createdAt: new Date(NOW.getTime() - 30 * 60 * 1000),
     })
     .run();
@@ -85,7 +101,23 @@ beforeAll(() => {
       country: 'DE',
       referrerHost: 'github.com',
       userAgentFamily: 'firefox',
+      viaCamo: false,
       createdAt: new Date(NOW.getTime() - 60 * 60 * 1000),
+    })
+    .run();
+  db.insert(schema.visits)
+    .values({
+      id: nanoid(16),
+      cardId,
+      fingerprintHash: 'fp-camo',
+      country: 'US',
+      // Non-null referrer keeps the "null-referrer means stale-only" assertion
+      // below honest — fp-camo is in-range, so it must not show up as a
+      // null-referrer row.
+      referrerHost: 'github.com',
+      userAgentFamily: 'camo',
+      viaCamo: true,
+      createdAt: new Date(NOW.getTime() - 90 * 60 * 1000),
     })
     .run();
   db.insert(schema.visits)
@@ -96,6 +128,7 @@ beforeAll(() => {
       country: 'PL',
       referrerHost: null,
       userAgentFamily: 'curl',
+      viaCamo: false,
       createdAt: new Date(NOW.getTime() - 8 * 24 * 60 * 60 * 1000),
     })
     .run();
@@ -134,11 +167,13 @@ describe('queryAnalytics', () => {
   it('produces referrer + country breakdowns for the visits range', () => {
     const r = queryAnalytics(db, { cardId, range: '24h', now: NOW });
     const refs = Object.fromEntries(r.referrers.map((x) => [x.host ?? '(none)', x.count]));
-    expect(refs['github.com']).toBe(2);
+    // fp-1, fp-2, fp-camo all in-range with github.com referrer.
+    expect(refs['github.com']).toBe(3);
 
     const countries = Object.fromEntries(r.countries.map((x) => [x.country ?? '(none)', x.count]));
     expect(countries.PL).toBe(1);
     expect(countries.DE).toBe(1);
+    expect(countries.US).toBe(1);
   });
 
   it('excludes visits older than the range window', () => {
@@ -152,5 +187,33 @@ describe('queryAnalytics', () => {
     for (const row of r.heatmap) expect(row.length).toBe(24);
     const totalInHeatmap = r.heatmap.flat().reduce((a, b) => a + b, 0);
     expect(totalInHeatmap).toBeGreaterThan(0);
+  });
+
+  it('surfaces direct/camo impression split alongside totals', () => {
+    const r = queryAnalytics(db, { cardId, range: '24h', now: NOW });
+    expect(r.totals.totalImpressions).toBe(15);
+    expect(r.totals.directImpressions).toBe(8);
+    expect(r.totals.camoImpressions).toBe(7);
+    // direct + camo equals total for post-migration buckets only.
+    expect(r.totals.directImpressions + r.totals.camoImpressions).toBe(r.totals.totalImpressions);
+  });
+
+  it('leaves the split at 0 for legacy buckets that predate the new columns', () => {
+    // The nowHour-50 bucket contributes 2 to totalImpressions but 0/0 to the split.
+    const r = queryAnalytics(db, { cardId, range: 'all', now: NOW });
+    expect(r.totals.totalImpressions).toBe(17);
+    expect(r.totals.directImpressions).toBe(8);
+    expect(r.totals.camoImpressions).toBe(7);
+    expect(r.totals.totalImpressions - r.totals.directImpressions - r.totals.camoImpressions).toBe(
+      2,
+    );
+  });
+
+  it('returns a unique-visit source breakdown grouped by viaCamo', () => {
+    const r = queryAnalytics(db, { cardId, range: '24h', now: NOW });
+    const lookup = Object.fromEntries(r.sources.map((s) => [s.source, s.count]));
+    // 24h range includes fp-1, fp-2 (direct) and fp-camo (camo).
+    expect(lookup.direct).toBe(2);
+    expect(lookup.camo).toBe(1);
   });
 });

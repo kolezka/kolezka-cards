@@ -38,11 +38,30 @@ export interface Breakdown<TKey extends string | null> {
 
 export interface AnalyticsResult {
   range: AnalyticsRange;
-  totals: { totalImpressions: number; uniqueVisits: number };
+  totals: {
+    totalImpressions: number;
+    uniqueVisits: number;
+    /**
+     * Impressions known to be direct (non-Camo) traffic. Sum of
+     * directImpressions + camoImpressions equals totalImpressions only
+     * for buckets created after migration 0003; older buckets contribute
+     * to totalImpressions but leave the split fields at 0.
+     */
+    directImpressions: number;
+    /** Impressions known to be GitHub-Camo-proxied (README embeds). */
+    camoImpressions: number;
+  };
   series: SeriesPoint[];
   referrers: Array<{ host: string | null; count: number }>;
   countries: Array<{ country: string | null; count: number }>;
   userAgents: Array<{ family: string | null; count: number }>;
+  /**
+   * Unique-visit split by source. Counts rows in the `visits` table,
+   * which are deduped per fingerprint within a 12h window — so this is
+   * "unique direct viewers vs unique Camo proxies seen". Distinct from
+   * totals.directImpressions / camoImpressions which count raw renders.
+   */
+  sources: Array<{ source: 'direct' | 'camo'; count: number }>;
   /**
    * Hour-of-week × hour-of-day heatmap. 7 rows (UTC Sun=0..Sat=6) × 24 cols.
    * Always returns a fully-populated 7x24 grid; zero-filled when no visits.
@@ -67,6 +86,8 @@ export function queryAnalytics(db: DB, input: QueryAnalyticsInput): AnalyticsRes
       hourBucket: schema.impressionBuckets.hourBucket,
       totalImpressions: schema.impressionBuckets.totalImpressions,
       uniqueVisits: schema.impressionBuckets.uniqueVisits,
+      directImpressions: schema.impressionBuckets.directImpressions,
+      camoImpressions: schema.impressionBuckets.camoImpressions,
     })
     .from(schema.impressionBuckets)
     .where(
@@ -81,8 +102,10 @@ export function queryAnalytics(db: DB, input: QueryAnalyticsInput): AnalyticsRes
     (acc, r) => ({
       totalImpressions: acc.totalImpressions + r.totalImpressions,
       uniqueVisits: acc.uniqueVisits + r.uniqueVisits,
+      directImpressions: acc.directImpressions + r.directImpressions,
+      camoImpressions: acc.camoImpressions + r.camoImpressions,
     }),
-    { totalImpressions: 0, uniqueVisits: 0 },
+    { totalImpressions: 0, uniqueVisits: 0, directImpressions: 0, camoImpressions: 0 },
   );
 
   const visitWhere =
@@ -129,6 +152,22 @@ export function queryAnalytics(db: DB, input: QueryAnalyticsInput): AnalyticsRes
     .map((r) => ({ family: r.family, count: Number(r.count) }))
     .sort((a, b) => b.count - a.count);
 
+  const sourceRows = db
+    .select({
+      viaCamo: schema.visits.viaCamo,
+      count: sql<number>`count(*)`,
+    })
+    .from(schema.visits)
+    .where(visitWhere)
+    .groupBy(schema.visits.viaCamo)
+    .all();
+  const sources: Array<{ source: 'direct' | 'camo'; count: number }> = sourceRows
+    .map((r) => ({
+      source: r.viaCamo ? ('camo' as const) : ('direct' as const),
+      count: Number(r.count),
+    }))
+    .sort((a, b) => b.count - a.count);
+
   const dowExpr = sql<number>`CAST(strftime('%w', ${schema.visits.createdAt} / 1000, 'unixepoch') AS INTEGER)`;
   const hourExpr = sql<number>`CAST(strftime('%H', ${schema.visits.createdAt} / 1000, 'unixepoch') AS INTEGER)`;
   const heatmapRows = db
@@ -163,6 +202,7 @@ export function queryAnalytics(db: DB, input: QueryAnalyticsInput): AnalyticsRes
     referrers,
     countries,
     userAgents,
+    sources,
     heatmap,
   };
 }
