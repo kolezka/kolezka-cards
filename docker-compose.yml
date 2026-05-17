@@ -30,12 +30,10 @@ services:
       BASE_URL: ${BASE_URL:-https://cards.example.com}
       NODE_ENV: production
       PORT: '3000'
-      # The app composes its connection string from the POSTGRES_* vars
-      # below (see resolveDatabaseUrl). To point at an external managed
-      # PG (e.g. on Coolify), either override these or set DATABASE_URL
-      # — DATABASE_URL takes precedence when set.
-      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
-      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      # Host is fixed by the compose network (the `postgres` service name);
+      # port defaults to 5432 in resolveDatabaseUrl. Only credentials are
+      # overridable — set POSTGRES_* in `.env` to customize.
+      POSTGRES_HOST: postgres
       POSTGRES_USER: ${POSTGRES_USER:-kc}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changemepostgres}
       POSTGRES_DB: ${POSTGRES_DB:-kc_cards}
