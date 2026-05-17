@@ -60,22 +60,15 @@ const EnvSchema = z
         message: 'GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must both be set or both unset',
       });
     }
-    // Need either DATABASE_URL or the full POSTGRES_* bundle (host/user/db
-    // are mandatory; password and port have sensible fallbacks). Tests use
-    // PGlite directly and bypass the connection layer, so we don't require
-    // either when NODE_ENV=test.
-    if (env.NODE_ENV !== 'test' && !env.DATABASE_URL) {
-      const missing: string[] = [];
-      if (!env.POSTGRES_HOST) missing.push('POSTGRES_HOST');
-      if (!env.POSTGRES_USER) missing.push('POSTGRES_USER');
-      if (!env.POSTGRES_DB) missing.push('POSTGRES_DB');
-      if (missing.length > 0) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['DATABASE_URL'],
-          message: `Set DATABASE_URL, or provide ${missing.join(', ')}`,
-        });
-      }
+    // POSTGRES_HOST / USER / DB / PORT all have compose-aware defaults
+    // (see resolveDatabaseUrl); only POSTGRES_PASSWORD is required in
+    // production. Tests bypass the connection layer entirely.
+    if (env.NODE_ENV !== 'test' && !env.DATABASE_URL && !env.POSTGRES_PASSWORD) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['POSTGRES_PASSWORD'],
+        message: 'Set POSTGRES_PASSWORD (or DATABASE_URL with embedded credentials)',
+      });
     }
   });
 
@@ -96,20 +89,27 @@ export function oauthConfigured(env: Env): boolean {
 }
 
 /**
+ * Default connection details for the bundled Postgres service in the same
+ * compose stack. Keeping them in code (rather than the compose env block)
+ * means they don't surface as deletable-but-required entries in Coolify's
+ * env tab. Override via env vars only if you're pointing at an external PG.
+ */
+const DEFAULT_POSTGRES_HOST = 'postgres';
+const DEFAULT_POSTGRES_PORT = '5432';
+const DEFAULT_POSTGRES_USER = 'kc';
+const DEFAULT_POSTGRES_DB = 'kc_cards';
+
+/**
  * Resolve the Postgres connection string from the env, preferring an
- * explicit DATABASE_URL and falling back to the POSTGRES_* bundle. Throws
- * if neither is sufficient (the Zod schema also enforces this at boot, so
- * in practice this branch only fires from helper scripts).
+ * explicit DATABASE_URL and falling back to the POSTGRES_* bundle with
+ * compose-aware defaults. Only POSTGRES_PASSWORD has to come from env.
  */
 export function resolveDatabaseUrl(env: Env): string {
   if (env.DATABASE_URL) return env.DATABASE_URL;
-  const host = env.POSTGRES_HOST;
-  const user = env.POSTGRES_USER;
-  const db = env.POSTGRES_DB;
-  if (!host || !user || !db) {
-    throw new Error('DATABASE_URL or POSTGRES_HOST/USER/DB must be set');
-  }
-  const port = env.POSTGRES_PORT ?? '5432';
+  const host = env.POSTGRES_HOST ?? DEFAULT_POSTGRES_HOST;
+  const port = env.POSTGRES_PORT ?? DEFAULT_POSTGRES_PORT;
+  const user = env.POSTGRES_USER ?? DEFAULT_POSTGRES_USER;
+  const db = env.POSTGRES_DB ?? DEFAULT_POSTGRES_DB;
   const password = env.POSTGRES_PASSWORD ?? '';
   const auth = password
     ? `${encodeURIComponent(user)}:${encodeURIComponent(password)}`

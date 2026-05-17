@@ -32,15 +32,14 @@ services:
     expose:
       - '3000'
     environment:
+      # Only the values that operators actually configure. Postgres
+      # host / user / db / port have compose-aware defaults in
+      # resolveDatabaseUrl(); NODE_ENV / PORT / WEB_BUILD_DIR are pinned
+      # in the Dockerfile. Keeping this list short means Coolify's env
+      # tab stays free of redundant constants.
       APP_SECRET: ${APP_SECRET:?Set APP_SECRET (>= 32 chars) in your env}
       BASE_URL: ${BASE_URL:?Set BASE_URL in your env (e.g. https://cards.example.com)}
-      NODE_ENV: production
-      PORT: '3000'
-      POSTGRES_HOST: postgres
-      POSTGRES_USER: kc
-      POSTGRES_DB: kc_cards
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your env}
-      WEB_BUILD_DIR: /app/apps/web/build
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       ADMIN_LOGINS: ${ADMIN_LOGINS:-}
