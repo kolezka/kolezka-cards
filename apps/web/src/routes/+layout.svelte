@@ -59,12 +59,14 @@
     top: 12px;
     z-index: 50;
     /* Pill hugs its contents (logo + nav). Capped so it never overflows
-       the viewport on small screens. Centered via auto margins. */
+       the viewport on small screens. `display: flex` is block-level so
+       `margin: 0 auto` actually centers it — `inline-flex` would stick
+       to the left edge because inline boxes ignore auto margins. */
     width: fit-content;
     max-width: calc(100% - 24px);
     margin: 12px auto 0;
     padding: 6px 10px 6px 12px;
-    display: inline-flex;
+    display: flex;
     align-items: center;
     gap: 10px;
     background: var(--glass-2);
