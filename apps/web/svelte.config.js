@@ -15,10 +15,14 @@ export default {
       mode: 'hash',
       directives: {
         'default-src': ['self'],
-        'script-src': ['self'],
+        'script-src': ['self', 'https://static.cloudflareinsights.com'],
         'style-src': ['self', 'unsafe-inline'],
         'img-src': ['self', 'data:', 'https:'],
-        'connect-src': ['self'],
+        'connect-src': [
+          'self',
+          'https://cloudflareinsights.com',
+          'https://*.cloudflareinsights.com',
+        ],
         'frame-ancestors': ['none'],
         'base-uri': ['self'],
         'form-action': ['self'],
