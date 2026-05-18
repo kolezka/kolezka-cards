@@ -19,7 +19,7 @@
       kolezka-cards (<a href="https://ghcards.raqz.link">ghcards.raqz.link</a>) is designed to give
       card owners useful visit analytics without tracking individual readers across days.
     </p>
-    <p class="updated">Last updated: 2026-05-17</p>
+    <p class="updated">Last updated: 2026-05-18</p>
   </header>
 
   <Glass tier={2} rounded="lg" padding="lg" as="section" class="prose">
@@ -70,13 +70,20 @@
       </li>
       <li>
         A coarse <strong>User-Agent family</strong> bucket: <code>chrome</code> /
-        <code>firefox</code> / <code>safari</code> / <code>curl</code> / <code>bot</code> /
-        <code>other</code>. Full User-Agent strings are never logged; only a 12-character hash is
-        kept for triage.
+        <code>firefox</code> / <code>edge</code> / <code>safari</code> / <code>curl</code> /
+        <code>bot</code> / <code>camo</code> / <code>other</code>. Full User-Agent strings are
+        never logged; only a 12-character hash is kept for triage.
+      </li>
+      <li>
+        A <strong>traffic source flag</strong>: <code>direct</code> (the visitor's browser hit
+        the URL itself) or <code>camo</code> (the request came through GitHub's image proxy).
+        Detected via the proxy's User-Agent prefix and the <code>Via</code> header. Lets the
+        dashboard show direct-viewer counts separately from README-embed impressions.
       </li>
       <li>
         Per-hour aggregated impression and unique-visit counters, retained as long as the
-        corresponding card exists.
+        corresponding card exists. Impressions are also split into
+        <code>direct_impressions</code> and <code>camo_impressions</code> on the same row.
       </li>
     </ul>
 
@@ -93,6 +100,24 @@
         your browser User-Agent. Sessions expire 30 days after creation.
       </li>
     </ul>
+
+    <h3>3.3 Administrator access</h3>
+    <p>
+      A small set of operator accounts — defined by the <code>ADMIN_LOGINS</code> environment
+      variable on the server — has access to an administrative interface
+      (<code>/app/admin</code> and <code>/api/admin/*</code>). Through it an administrator can:
+    </p>
+    <ul>
+      <li>List every user and the count of cards they own.</li>
+      <li>List any user's cards with aggregated impression / unique-visit totals.</li>
+      <li>Delete a card (cascades to its visit rows and impression buckets).</li>
+      <li>Delete a user (cascades to all of their cards, sessions, and analytics data).</li>
+    </ul>
+    <p>
+      Administrators cannot delete themselves and cannot read the contents of session cookies.
+      All actions are logged in the service's structured logs. The current administrator list
+      is intentionally short and limited to people who operate the service.
+    </p>
 
     <h2>4. What we do not collect</h2>
     <ul>
@@ -146,8 +171,12 @@
       </li>
       <li>Sessions expire automatically 30 days after creation.</li>
       <li>
-        The service does not maintain off-site backups; production runs against a single SQLite
-        database file. Operational snapshots may be taken before migrations.
+        OAuth-state rows (used for the GitHub sign-in CSRF check) expire 10 minutes after creation.
+      </li>
+      <li>
+        Production stores data in a single PostgreSQL instance hosted on the same infrastructure
+        as the application; data does not leave that host. The service does not maintain off-site
+        backups; operational snapshots may be taken before migrations.
       </li>
     </ul>
 
@@ -169,9 +198,11 @@
       <li>
         <strong>GitHub</strong> — OAuth provider; the service calls
         <code>api.github.com</code> to fetch your public profile data when rendering
-        <code>profile-stats</code>, <code>repo-stats</code>, <code>streak</code>,
-        <code>profile-summary</code>, <code>languages</code>, <code>top-repos</code>,
-        <code>gist-counter</code>, and <code>followers-sparkline</code> cards.
+        <code>profile-stats</code>, <code>profile-views</code>, <code>repo-stats</code>,
+        <code>streak</code>, <code>profile-summary</code>, <code>languages</code>,
+        <code>top-repos</code>, <code>gist-counter</code>, <code>followers-sparkline</code>,
+        and <code>custom</code> cards (the last only if the layout references
+        <code>github.*</code> data sources).
       </li>
       <li>
         <strong>Wakatime</strong> — only if you configure a <code>wakatime</code> card. Your
