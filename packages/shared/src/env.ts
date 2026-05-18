@@ -49,6 +49,15 @@ const EnvSchema = z
      * `users.login`.
      */
     ADMIN_LOGINS: emptyToUndefined,
+    /**
+     * Self-hosted Umami origin (e.g. `https://umami.raqz.link`). When both
+     * UMAMI_HOST and UMAMI_WEBSITE_ID are set, the `/p/:cardId.gif` endpoint
+     * fire-and-forgets a `card-pixel` event for each non-self-traffic hit.
+     * If either is unset, the pixel endpoint still serves a 1x1 GIF but
+     * doesn't beacon — useful for local/dev without an Umami instance.
+     */
+    UMAMI_HOST: optionalUrl,
+    UMAMI_WEBSITE_ID: emptyToUndefined,
   })
   .superRefine((env, ctx) => {
     const idSet = Boolean(env.GITHUB_CLIENT_ID);

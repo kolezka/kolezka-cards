@@ -632,6 +632,15 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
       if (visit.wasUnique) bumpCounter('render.unique');
     }
 
+    // Inject a self-hosted Umami tracking pixel. Most embeds reach us via
+    // GitHub's Camo proxy where the SVG is consumed by `<img>` — browsers
+    // block external resource loads in img-mode SVGs, so the pixel only
+    // fires for standalone views, `<object>`/`<iframe>` embeds, and inline
+    // SVG usage. The pixel endpoint itself filters self-traffic by referer.
+    const pixelUrl = `${env.BASE_URL.replace(/\/$/, '')}/p/${card.id}.gif?t=${Date.now()}`;
+    const pixelTag = `<image href="${pixelUrl}" x="-1" y="-1" width="1" height="1" aria-hidden="true" preserveAspectRatio="none"/>`;
+    svg = svg.replace(/<\/svg>\s*$/, `${pixelTag}</svg>`);
+
     c.header('Content-Type', 'image/svg+xml; charset=utf-8');
     // Ask Chromium to send the higher-entropy hints on subsequent requests.
     // Browsers cache the directive per-origin; first request from a given
