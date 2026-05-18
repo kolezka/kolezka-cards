@@ -111,8 +111,9 @@
         a return visitor on different days.
       </li>
       <li>
-        No advertising, no tracking pixels, no third-party cookies. Aggregate
-        (cookieless) Cloudflare Web Analytics runs on the dashboard pages only —
+        No advertising, no tracking pixels, no third-party cookies. Cookieless
+        analytics beacons (Cloudflare Web Analytics and a self-hosted Umami
+        instance) run on the dashboard / marketing pages only —
         see <a href="#sub-processors">Section 8</a>.
       </li>
     </ul>
@@ -176,6 +177,16 @@
         <strong>Wakatime</strong> — only if you configure a <code>wakatime</code> card. Your
         Wakatime API key (stored in your card's configuration) is sent to <code>wakatime.com</code>
         to fetch your coding-time statistics. Remove the card to stop these requests.
+      </li>
+      <li>
+        <strong>Umami</strong> (<code>umami.raqz.link</code>) — self-hosted, cookieless
+        product analytics for the dashboard / marketing pages. Records aggregated
+        pageviews, referrers, country, browser. No cookies, no cross-site tracking, no
+        advertising identifiers. Visitor IPs are not stored (Umami hashes them
+        in-memory to compute the daily-unique signal, then discards). The beacon is
+        not loaded on the embedded SVG endpoint (<code>/c/&lt;user&gt;/&lt;slug&gt;.svg</code>);
+        only the HTML pages. The instance runs on the same infrastructure as
+        <code>ghcards.raqz.link</code>; no third-party data flow.
       </li>
     </ul>
 
