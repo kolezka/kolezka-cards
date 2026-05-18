@@ -166,6 +166,17 @@
   </header>
 
   <div class="grid">
+    <!-- Preview + URL (above so the live SVG is the first thing you see) -->
+    <Glass tier={2} rounded="lg" padding="lg" as="section" class="preview">
+      <h2>Preview</h2>
+      <div class="preview-canvas">
+        <img src={svgUrl} alt="Card preview" />
+      </div>
+      <p class="muted preview-url">
+        Live URL: <code>{card.url}</code>
+      </p>
+    </Glass>
+
     <!-- Config panel -->
     <Glass tier={3} rounded="lg" padding="lg" as="section" class="builder">
       <h2>Configure</h2>
@@ -388,17 +399,6 @@
         </GlassButton>
       </div>
     </Glass>
-
-    <!-- Preview + URL -->
-    <Glass tier={2} rounded="lg" padding="lg" as="section" class="preview">
-      <h2>Preview</h2>
-      <div class="preview-canvas">
-        <img src={svgUrl} alt="Card preview" />
-      </div>
-      <p class="muted preview-url">
-        Live URL: <code>{card.url}</code>
-      </p>
-    </Glass>
   </div>
 
   <!-- Analytics -->
@@ -554,14 +554,9 @@
 
   .grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 20px;
     margin: 0 0 32px;
-  }
-  @media (max-width: 880px) {
-    .grid {
-      grid-template-columns: 1fr;
-    }
   }
 
   :global(.builder) {
