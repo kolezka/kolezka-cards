@@ -9,6 +9,9 @@
     "preview": "vite preview",
     "typecheck": "svelte-check --tsconfig ./tsconfig.json --threshold error"
   },
+  "dependencies": {
+    "@kc/shared": "workspace:*"
+  },
   "devDependencies": {
     "@sveltejs/adapter-static": "^3.0.6",
     "@sveltejs/kit": "^2.8.0",

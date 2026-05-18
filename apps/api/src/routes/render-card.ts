@@ -1,5 +1,6 @@
 import { type DB, schema } from '@kc/db';
 import { computeFingerprint, detectCamo, truncateIp } from '@kc/shared/fingerprint';
+import { type CustomData, neededSources, renderCustom } from '@kc/shared/svg/custom';
 import {
   daysForPeriod as followersDaysForPeriod,
   renderFollowersSparkline,
@@ -16,6 +17,7 @@ import { renderVisitCounter } from '@kc/shared/svg/visit-counter';
 import { renderWakatime } from '@kc/shared/svg/wakatime';
 import {
   CardConfig,
+  CustomConfig,
   FollowersSparklineConfig,
   GistCounterConfig,
   LanguagesConfig,
@@ -492,6 +494,79 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
               pickDims(parsed, query),
             );
           }
+          break;
+        }
+        case 'custom': {
+          const merged = applyQueryOverrides(config, query);
+          const parsed = CustomConfig.parse(merged);
+          const need = neededSources(parsed);
+          const data: CustomData = {
+            visits: { total: visit.totalImpressions, unique: visit.uniqueVisits },
+          };
+
+          // Load GitHub user only if any block references github.*.
+          if (need.needsGithubUser) {
+            const user = await github.getUser(row.ownerLogin);
+            if (user) {
+              data.github = {
+                followers: user.followers,
+                repos: user.public_repos,
+                gists: user.public_gists ?? 0,
+              };
+              data.currentFollowers = user.followers;
+            }
+          }
+
+          // Aggregate stars across repos + derive top language.
+          if (need.needsGithubRepos) {
+            const reposRes = await fetch(
+              `https://api.github.com/users/${encodeURIComponent(row.ownerLogin)}/repos?per_page=100&sort=pushed`,
+              {
+                headers: { 'User-Agent': 'kolezka-cards', Accept: 'application/vnd.github+json' },
+              },
+            );
+            if (reposRes.ok) {
+              const repos = (await reposRes.json()) as Array<{
+                language: string | null;
+                size: number;
+                stargazers_count: number;
+              }>;
+              const langAgg: Record<string, number> = {};
+              let starsTotal = 0;
+              for (const r of repos) {
+                starsTotal += r.stargazers_count;
+                if (r.language) langAgg[r.language] = (langAgg[r.language] ?? 0) + (r.size || 1);
+              }
+              data.github = { ...(data.github ?? {}), stars: starsTotal };
+              const topLang = Object.entries(langAgg).sort((a, b) => b[1] - a[1])[0]?.[0];
+              if (topLang) data.github.topLanguage = topLang;
+            }
+          }
+
+          // Contributions feed: powers both a stat (year total) and the
+          // sparkline (daily counts). Fetched once and reused.
+          if (need.needsContributions) {
+            const days = await fetchContributions(row.ownerLogin);
+            if (days) {
+              const stats = computeStreakStats(days);
+              data.github = { ...(data.github ?? {}), contributionsYear: stats.totalThisYear };
+              data.contributionsHistory = days.map((d) => ({ date: d.date, count: d.count }));
+            }
+          }
+
+          // Followers sparkline: snapshot today's count and read history.
+          if (need.needsFollowersHistory) {
+            if (data.currentFollowers === undefined) {
+              const user = await github.getUser(row.ownerLogin);
+              if (user) data.currentFollowers = user.followers;
+            }
+            if (data.currentFollowers !== undefined) {
+              await snapshotFollowers(db, card.userId, data.currentFollowers);
+            }
+            data.followersHistory = await getFollowersHistory(db, card.userId);
+          }
+
+          svg = renderCustom(parsed, data, pickDims(parsed, query));
           break;
         }
         case 'gist-counter': {

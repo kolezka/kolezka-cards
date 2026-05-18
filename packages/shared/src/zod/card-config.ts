@@ -136,6 +136,100 @@ export const WakatimeConfig = CardBase.extend({
   limit: z.number().int().min(3).max(10).default(6),
 });
 
+/**
+ * Custom card — a free-form composition of primitive "blocks" placed on a
+ * snap-to-grid canvas. Each block declares its kind, position (x, y) and
+ * size (w, h) in card-local pixels; the renderer dispatches per-kind.
+ *
+ * Sources for blocks that display a number/text value:
+ *  - `literal` — use the block's `literal` field verbatim
+ *  - `visits.total` / `visits.unique` — analytics on this card
+ *  - `github.stars` / `.followers` / `.repos` / `.gists`
+ *      / `.contributions.year` / `.top.language` — live GitHub for the
+ *    card owner. Fetched on every render via the existing GitHub client.
+ */
+export const BLOCK_SOURCES = z.enum([
+  'literal',
+  'visits.total',
+  'visits.unique',
+  'github.stars',
+  'github.followers',
+  'github.repos',
+  'github.gists',
+  'github.contributions.year',
+  'github.top.language',
+]);
+export type BlockSource = z.infer<typeof BLOCK_SOURCES>;
+
+const BlockBase = z.object({
+  id: z.string().min(1).max(32),
+  x: z.number().int().min(0).max(2000),
+  y: z.number().int().min(0).max(2000),
+  w: z.number().int().min(8).max(1200),
+  h: z.number().int().min(8).max(600),
+});
+
+export const TextBlock = BlockBase.extend({
+  kind: z.literal('text'),
+  text: z.string().max(200).default(''),
+  size: z.enum(['s', 'm', 'l', 'xl']).default('m'),
+  align: z.enum(['left', 'center', 'right']).default('left'),
+  color: z.enum(['text', 'muted', 'accent']).default('text'),
+  weight: z.enum(['normal', 'bold']).default('normal'),
+});
+
+export const StatBlock = BlockBase.extend({
+  kind: z.literal('stat'),
+  label: z.string().max(40).default(''),
+  source: BLOCK_SOURCES.default('literal'),
+  literal: z.string().max(40).default('0'),
+});
+
+export const BadgeBlock = BlockBase.extend({
+  kind: z.literal('badge'),
+  label: z.string().max(40).default('badge'),
+  source: BLOCK_SOURCES.default('literal'),
+  literal: z.string().max(40).default('1'),
+});
+
+export const DividerBlock = BlockBase.extend({
+  kind: z.literal('divider'),
+});
+
+export const SparklineBlock = BlockBase.extend({
+  kind: z.literal('sparkline'),
+  source: z.enum(['followers', 'contributions']).default('followers'),
+  period: z.enum(['30d', '90d', '365d', 'all']).default('90d'),
+  label: z.string().max(40).default(''),
+});
+
+export const ImageBlock = BlockBase.extend({
+  kind: z.literal('image'),
+  src: z.string().max(400).default(''),
+  alt: z.string().max(80).default(''),
+});
+
+export const Block = z.discriminatedUnion('kind', [
+  TextBlock,
+  StatBlock,
+  BadgeBlock,
+  DividerBlock,
+  SparklineBlock,
+  ImageBlock,
+]);
+export type Block = z.infer<typeof Block>;
+export type TextBlock = z.infer<typeof TextBlock>;
+export type StatBlock = z.infer<typeof StatBlock>;
+export type BadgeBlock = z.infer<typeof BadgeBlock>;
+export type DividerBlock = z.infer<typeof DividerBlock>;
+export type SparklineBlock = z.infer<typeof SparklineBlock>;
+export type ImageBlock = z.infer<typeof ImageBlock>;
+
+export const CustomConfig = CardBase.extend({
+  type: z.literal('custom'),
+  blocks: z.array(Block).max(50).default([]),
+});
+
 export const CardConfig = z.discriminatedUnion('type', [
   VisitCounterConfig,
   ProfileStatsConfig,
@@ -148,6 +242,7 @@ export const CardConfig = z.discriminatedUnion('type', [
   WakatimeConfig,
   FollowersSparklineConfig,
   ProfileViewsConfig,
+  CustomConfig,
 ]);
 
 export type CardConfig = z.infer<typeof CardConfig>;
@@ -162,3 +257,4 @@ export type GistCounterConfig = z.infer<typeof GistCounterConfig>;
 export type WakatimeConfig = z.infer<typeof WakatimeConfig>;
 export type FollowersSparklineConfig = z.infer<typeof FollowersSparklineConfig>;
 export type ProfileViewsConfig = z.infer<typeof ProfileViewsConfig>;
+export type CustomConfig = z.infer<typeof CustomConfig>;

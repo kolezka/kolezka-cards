@@ -21,6 +21,7 @@ export const CARD_TYPES = [
   'gist-counter',
   'wakatime',
   'followers-sparkline',
+  'custom',
 ] as const;
 export type CardType = (typeof CARD_TYPES)[number];
 
@@ -53,5 +54,27 @@ export function defaultConfigFor(type: CardType, theme: ThemeName = 'github_dark
       return { type, theme, apiKey: '', range: 'last_7_days', limit: 6 };
     case 'followers-sparkline':
       return { type, theme, period: '90d' };
+    case 'custom':
+      return {
+        type,
+        theme,
+        title: 'My card',
+        size: { width: 480, height: 300 },
+        blocks: [
+          {
+            id: 'b1',
+            kind: 'text',
+            x: 16,
+            y: 16,
+            w: 448,
+            h: 32,
+            text: 'My custom card',
+            size: 'l',
+            align: 'left',
+            color: 'text',
+            weight: 'bold',
+          },
+        ],
+      };
   }
 }

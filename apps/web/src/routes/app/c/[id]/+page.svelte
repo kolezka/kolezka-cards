@@ -328,6 +328,20 @@
         />
       {/if}
 
+      {#if card.type === 'custom'}
+        {#await import('$lib/CardBuilder.svelte')}
+          <p class="muted">Loading builder…</p>
+        {:then Mod}
+          {@const Builder = Mod.default}
+          <Builder
+            cfg={cfg as never}
+            onChange={(next) => {
+              cfg = next as never;
+            }}
+          />
+        {/await}
+      {/if}
+
       <!-- Size, applies to every card type -->
       <fieldset>
         <legend>Size (optional)</legend>

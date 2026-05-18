@@ -36,6 +36,9 @@
     "apps/web": {
       "name": "@kc/web",
       "version": "0.0.0",
+      "dependencies": {
+        "@kc/shared": "workspace:*",
+      },
       "devDependencies": {
         "@sveltejs/adapter-static": "^3.0.6",
         "@sveltejs/kit": "^2.8.0",
