@@ -158,7 +158,16 @@
   // Drag-to-move and corner-resize logic on the overlay.
   // Only one of {dragging, resizing} is non-null at a time.
   type Corner = 'tl' | 'tr' | 'bl' | 'br';
-  let dragging = $state<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  const CLICK_SLOP_PX = 3;
+  let dragging = $state<{
+    id: string;
+    offsetX: number;
+    offsetY: number;
+    startClientX: number;
+    startClientY: number;
+    wasSelected: boolean;
+    moved: boolean;
+  } | null>(null);
   let resizing = $state<{
     id: string;
     corner: Corner;
@@ -170,11 +179,20 @@
 
   function onBlockPointerDown(e: PointerEvent, block: Block) {
     e.stopPropagation();
+    const wasSelected = selectedId === block.id;
     selectedId = block.id;
     const svg = e.currentTarget as SVGElement;
     const ownerSvg = svg.ownerSVGElement ?? (svg as unknown as SVGSVGElement);
     const pt = svgPoint(ownerSvg, e.clientX, e.clientY);
-    dragging = { id: block.id, offsetX: pt.x - block.x, offsetY: pt.y - block.y };
+    dragging = {
+      id: block.id,
+      offsetX: pt.x - block.x,
+      offsetY: pt.y - block.y,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      wasSelected,
+      moved: false,
+    };
     (e.target as Element).setPointerCapture?.(e.pointerId);
   }
 
@@ -196,6 +214,14 @@
     const svg = e.currentTarget as SVGSVGElement;
     const pt = svgPoint(svg, e.clientX, e.clientY);
     if (dragging) {
+      // Suppress tiny shakes so a stationary click doesn't get treated as
+      // a drag (which would prevent the click-to-deselect path below).
+      if (!dragging.moved) {
+        const dx = Math.abs(e.clientX - dragging.startClientX);
+        const dy = Math.abs(e.clientY - dragging.startClientY);
+        if (dx < CLICK_SLOP_PX && dy < CLICK_SLOP_PX) return;
+        dragging.moved = true;
+      }
       const nextX = clamp(snap(pt.x - dragging.offsetX), 0, canvasW - 8);
       const nextY = clamp(snap(pt.y - dragging.offsetY), 0, canvasH - 8);
       updateBlock(dragging.id, { x: nextX, y: nextY } as Partial<Block>);
@@ -228,6 +254,12 @@
   }
 
   function onOverlayPointerUp() {
+    // Click-toggle: if pointer didn't move AND the block was already
+    // selected when this cycle started, treat it as a deselect. A normal
+    // drag bypasses this because dragging.moved becomes true.
+    if (dragging && !dragging.moved && dragging.wasSelected) {
+      selectedId = null;
+    }
     dragging = null;
     resizing = null;
   }
