@@ -246,8 +246,12 @@
     };
   }
 
-  function deselect() {
-    selectedId = null;
+  // Only deselect on canvas-wrap clicks that aren't bubbled from a block /
+  // handle. Without this, every pointer-up on a block bubbled to the wrap's
+  // onclick and immediately cleared the selection — making the inspector
+  // (and the delete button) disappear right after you clicked.
+  function maybeDeselect(e: MouseEvent) {
+    if (e.target === e.currentTarget) selectedId = null;
   }
 
   function setSizeField(field: 'width' | 'height', raw: string) {
@@ -287,7 +291,7 @@
     <p class="muted hint">Drag blocks to move. Snaps to 8px.</p>
   </aside>
 
-  <div class="canvas-wrap" onclick={deselect} role="presentation">
+  <div class="canvas-wrap" onclick={maybeDeselect} role="presentation">
     <div class="canvas" style="aspect-ratio: {canvasW}/{canvasH};">
       <div class="svg-bg" aria-hidden="true">
         <!-- Real renderer output, used as a faithful preview. -->

@@ -6,6 +6,8 @@
   import { THEME_NAMES } from '$lib/theme';
   import Sparkline from '$lib/Sparkline.svelte';
   import Heatmap from '$lib/Heatmap.svelte';
+  import { renderCustom, type CustomData } from '@kc/shared/svg/custom';
+  import type { CustomConfig } from '@kc/shared/zod/card-config';
   import {
     Glass,
     GlassButton,
@@ -141,6 +143,38 @@
   onMount(loadAll);
 
   let svgUrl = $derived(card ? `${card.url}?v=${cacheBuster}` : '');
+
+  // For custom cards, render the preview client-side from the live cfg so
+  // edits appear immediately. Other card types still use the production
+  // SVG endpoint (refreshed via cacheBuster on save).
+  const PREVIEW_MOCK: CustomData = {
+    visits: { total: 1234, unique: 567 },
+    github: {
+      stars: 89,
+      followers: 421,
+      repos: 32,
+      gists: 5,
+      contributionsYear: 1842,
+      topLanguage: 'TypeScript',
+    },
+    followersHistory: Array.from({ length: 90 }, (_, i) => {
+      const day = new Date(Date.now() - (89 - i) * 86_400_000).toISOString().slice(0, 10);
+      return { day, followers: 400 + Math.round(Math.sin(i / 8) * 15 + i * 0.4) };
+    }),
+    contributionsHistory: Array.from({ length: 90 }, (_, i) => ({
+      date: new Date(Date.now() - (89 - i) * 86_400_000).toISOString().slice(0, 10),
+      count: Math.max(0, Math.round(4 + Math.sin(i / 5) * 4 + Math.random() * 3)),
+    })),
+    currentFollowers: 421,
+  };
+  let livePreviewSvg = $derived(
+    card?.type === 'custom'
+      ? renderCustom(cfg as unknown as CustomConfig, PREVIEW_MOCK, {
+          width: cfg.size?.width ?? 480,
+          height: cfg.size?.height ?? 300,
+        })
+      : '',
+  );
 </script>
 
 {#if err}
@@ -170,7 +204,13 @@
     <Glass tier={2} rounded="lg" padding="lg" as="section" class="preview">
       <h2>Preview</h2>
       <div class="preview-canvas">
-        <img src={svgUrl} alt="Card preview" />
+        {#if card.type === 'custom'}
+          <!-- Render client-side so the preview tracks unsaved edits in
+               real time, matching the builder's canvas exactly. -->
+          {@html livePreviewSvg}
+        {:else}
+          <img src={svgUrl} alt="Card preview" />
+        {/if}
       </div>
       <p class="muted preview-url">
         Live URL: <code>{card.url}</code>
