@@ -323,6 +323,60 @@
     if (e.target === e.currentTarget) selectedId = null;
   }
 
+  // The block <rect>s sit inside the overlay svg; a click on empty overlay
+  // area (between or around blocks) hits the svg itself and should also
+  // count as "clicked outside any block" → deselect.
+  function onOverlayClick(e: MouseEvent) {
+    if (e.target === e.currentTarget) selectedId = null;
+  }
+
+  // ── Canvas drag-resize ─────────────────────────────────────────────────
+  let canvasResize = $state<{
+    startX: number;
+    startY: number;
+    startW: number;
+    startH: number;
+    scaleX: number;
+    scaleY: number;
+  } | null>(null);
+
+  function onCanvasResizeStart(e: PointerEvent) {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!overlayEl) return;
+    const rect = overlayEl.getBoundingClientRect();
+    canvasResize = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: canvasW,
+      startH: canvasH,
+      // Map display pixels back to canvas units. Both axes are tracked
+      // separately so the calc still works if the user constrains aspect
+      // ratio via CSS in the future.
+      scaleX: rect.width / canvasW,
+      scaleY: rect.height / canvasH,
+    };
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+  }
+
+  function onCanvasResizeMove(e: PointerEvent) {
+    if (!canvasResize) return;
+    const cr = canvasResize;
+    const dxCanvas = (e.clientX - cr.startX) / (cr.scaleX || 1);
+    const dyCanvas = (e.clientY - cr.startY) / (cr.scaleY || 1);
+    // Min/max mirror the page-level Size (optional) field validation
+    // ranges (200–1200 × 80–600). Snap so the canvas stays on grid.
+    const nextW = clamp(snap(cr.startW + dxCanvas), 200, 1200);
+    const nextH = clamp(snap(cr.startH + dyCanvas), 80, 600);
+    if (nextW !== (cfg.size?.width ?? canvasW) || nextH !== (cfg.size?.height ?? canvasH)) {
+      commit({ size: { width: nextW, height: nextH } });
+    }
+  }
+
+  function onCanvasResizeUp() {
+    canvasResize = null;
+  }
+
   // ── Context menu ────────────────────────────────────────────────────────
   let overlayEl = $state<SVGSVGElement | null>(null);
   type MenuState = {
@@ -467,7 +521,11 @@
     oncontextmenu={openCanvasMenu}
     role="presentation"
   >
-    <div class="canvas" style="aspect-ratio: {canvasW}/{canvasH};">
+    <div
+      class="canvas"
+      class:resizing={canvasResize !== null}
+      style="aspect-ratio: {canvasW}/{canvasH}; max-width: {canvasW}px;"
+    >
       <div class="svg-bg" aria-hidden="true">
         <!-- Real renderer output, used as a faithful preview. -->
         {@html svgMarkup}
@@ -477,6 +535,7 @@
         bind:this={overlayEl}
         viewBox="0 0 {canvasW} {canvasH}"
         preserveAspectRatio="none"
+        onclick={onOverlayClick}
         onpointermove={onOverlayPointerMove}
         onpointerup={onOverlayPointerUp}
         onpointerleave={onOverlayPointerUp}
@@ -520,6 +579,21 @@
           {/if}
         {/each}
       </svg>
+      <!-- Canvas drag-resize handle. Lives in the SE corner of the rendered
+           card and adjusts cfg.size in canvas units (display→canvas scale
+           from the overlay's bounding rect). Mirrors the same 200–1200 /
+           80–600 limits as the page-level Size (optional) inputs. -->
+      <div
+        class="canvas-resize"
+        role="button"
+        tabindex="0"
+        aria-label="Resize canvas"
+        title="Drag to resize canvas (snaps to 8px)"
+        onpointerdown={onCanvasResizeStart}
+        onpointermove={onCanvasResizeMove}
+        onpointerup={onCanvasResizeUp}
+        onpointercancel={onCanvasResizeUp}
+      ></div>
     </div>
   </div>
 
@@ -1036,8 +1110,27 @@
   .canvas {
     position: relative;
     margin: 0 auto;
-    max-width: 100%;
     box-shadow: var(--shadow-2);
+  }
+  .canvas.resizing {
+    user-select: none;
+  }
+  .canvas-resize {
+    position: absolute;
+    bottom: -7px;
+    right: -7px;
+    width: 14px;
+    height: 14px;
+    background: var(--accent);
+    border: 2px solid var(--surface-1);
+    border-radius: 3px;
+    cursor: nwse-resize;
+    z-index: 2;
+    touch-action: none;
+    transition: transform var(--dur-fast) var(--ease-glass);
+  }
+  .canvas-resize:hover {
+    transform: scale(1.18);
   }
   .svg-bg :global(svg) {
     display: block;
