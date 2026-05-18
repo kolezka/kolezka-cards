@@ -65,7 +65,7 @@
        to the left edge because inline boxes ignore auto margins. */
     width: calc(100% - 48px);
     max-width: 1100px;
-    margin: 12px auto 0;
+    margin: 0 auto;
     padding: 6px 10px 6px 12px;
     display: flex;
     align-items: center;

@@ -49,14 +49,11 @@
     Camo. Self-hosted, fast, beautiful.
   </p>
   <div class="cta-row">
-    {#if me}
-      <GlassButton variant="primary" size="lg" href="/app">Open dashboard</GlassButton>
-    {:else}
+    {#if !me}
       <GlassButton variant="primary" size="lg" href="/auth/github">
         Sign in with GitHub
       </GlassButton>
     {/if}
-    <GlassButton variant="secondary" size="lg" href="/dev">Live demo</GlassButton>
   </div>
 </section>
 
