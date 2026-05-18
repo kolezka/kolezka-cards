@@ -40,7 +40,6 @@
 </script>
 
 <section class="hero">
-  <p class="eyebrow">kolezka-cards</p>
   <h1 class="title-display">
     Dynamic SVG cards<br />
     <span class="accent-gradient">for your GitHub README.</span>

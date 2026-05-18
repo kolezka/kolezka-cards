@@ -112,6 +112,9 @@
 <style>
   svg {
     width: 100%;
+    max-width: 960px;
     height: auto;
+    display: block;
+    margin: 0 auto;
   }
 </style>

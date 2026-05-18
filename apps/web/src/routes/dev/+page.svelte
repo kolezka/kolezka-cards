@@ -66,7 +66,6 @@
 <header class="head">
   <p class="eyebrow">Dev</p>
   <h1 class="title-display">Live card preview</h1>
-  <p class="sub">Polls every 2s. Run <code>bun run db:seed</code> if you have no cards yet.</p>
 </header>
 
 {#if error}
