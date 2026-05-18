@@ -460,23 +460,14 @@
 
 </script>
 
-<div class="builder">
-  <aside class="palette">
-    <h3>Add block</h3>
-    <div class="palette-grid">
-      {#each PALETTE as p (p.kind)}
-        <button type="button" class="palette-item" onclick={() => addBlock(p.kind)}>
-          <span class="palette-glyph" aria-hidden="true">{glyph(p.kind)}</span>
-          <span>{p.label}</span>
-        </button>
-      {/each}
-    </div>
-    <p class="muted hint">
-      Drag to move. Right-click for add / duplicate / delete. Del removes, ⌘D duplicates,
-      Esc deselects. Canvas size lives below.
-    </p>
-  </aside>
+<p class="builder-help muted">
+  <strong>Right-click</strong> the canvas to add a block at that spot, or right-click a
+  block for <em>duplicate</em>, <em>reorder</em>, and <em>delete</em>. Drag to move
+  (snaps to 8px). Shortcuts: <kbd>Del</kbd> remove, <kbd>⌘D</kbd> duplicate,
+  <kbd>Esc</kbd> deselect. Canvas size lives below.
+</p>
 
+<div class="builder">
   <div
     class="canvas-wrap"
     onclick={maybeDeselect}
@@ -762,16 +753,15 @@
 <style>
   .builder {
     display: grid;
-    grid-template-columns: 220px 1fr 280px;
+    grid-template-columns: 1fr 340px;
     gap: 16px;
     align-items: start;
   }
-  @media (max-width: 1100px) {
+  @media (max-width: 900px) {
     .builder {
       grid-template-columns: 1fr;
     }
   }
-  .palette,
   .inspector {
     background: var(--glass-2);
     border: 1px solid var(--ring-soft);
@@ -790,35 +780,28 @@
     color: var(--text-3);
     font-weight: 600;
   }
-  .palette-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
+  .builder-help {
+    font-size: 13px;
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    background: var(--glass-2);
+    border: 1px solid var(--ring-soft);
+    border-radius: var(--radius-md);
+    line-height: 1.55;
   }
-  .palette-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 10px 6px;
+  .builder-help kbd {
+    display: inline-block;
+    margin: 0 1px;
+    padding: 1px 6px;
     background: var(--glass-3);
     border: 1px solid var(--ring-soft);
     border-radius: var(--radius-sm);
+    font: 500 11px var(--font-mono);
+    color: var(--text-2);
+  }
+  .builder-help em {
+    font-style: normal;
     color: var(--text-1);
-    font: 600 11px var(--font-sans);
-    cursor: pointer;
-    transition: background var(--dur-fast) var(--ease-glass);
-  }
-  .palette-item:hover {
-    background: var(--glass-4);
-  }
-  .palette-glyph {
-    font-size: 18px;
-    color: var(--accent);
-  }
-  .hint {
-    font-size: 12px;
-    margin: 10px 0 0;
   }
 
   /* ── Context menu ─────────────────────────────────────────────────── */
