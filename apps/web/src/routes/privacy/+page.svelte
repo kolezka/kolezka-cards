@@ -9,6 +9,13 @@
     name="description"
     content="Privacy policy for kolezka-cards (ghcards.raqz.link) — data controller, what we collect, GDPR rights."
   />
+  <link rel="canonical" href="https://ghcards.raqz.link/privacy" />
+  <meta property="og:title" content="Privacy Policy · kolezka-cards" />
+  <meta property="og:url" content="https://ghcards.raqz.link/privacy" />
+  <meta
+    property="og:description"
+    content="Privacy policy for kolezka-cards — data controller, what we collect, GDPR rights."
+  />
 </svelte:head>
 
 <article class="article-wrap">

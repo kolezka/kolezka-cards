@@ -63,6 +63,11 @@
   );
 </script>
 
+<svelte:head>
+  <title>Live card preview · kolezka-cards</title>
+  <meta name="robots" content="noindex,nofollow" />
+</svelte:head>
+
 <header class="head">
   <p class="eyebrow">Dev</p>
   <h1 class="title-display">Live card preview</h1>

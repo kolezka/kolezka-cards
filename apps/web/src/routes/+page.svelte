@@ -39,6 +39,17 @@
   ];
 </script>
 
+<svelte:head>
+  <title>kolezka-cards — Dynamic SVG cards for your GitHub README</title>
+  <meta name="robots" content="index,follow" />
+  <meta
+    name="description"
+    content="Privacy-preserving SVG cards for GitHub READMEs — profile stats, repo stats, languages, streaks — with analytics that survive Camo. Self-hosted, fast, beautiful."
+  />
+  <link rel="canonical" href="https://ghcards.raqz.link/" />
+  <meta property="og:url" content="https://ghcards.raqz.link/" />
+</svelte:head>
+
 <section class="hero">
   <h1 class="title-display">
     Dynamic SVG cards<br />

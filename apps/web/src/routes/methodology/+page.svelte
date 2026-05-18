@@ -2,6 +2,22 @@
   import { Glass } from '$lib/ui';
 </script>
 
+<svelte:head>
+  <title>Methodology · kolezka-cards</title>
+  <meta name="robots" content="index,follow" />
+  <meta
+    name="description"
+    content="How kolezka-cards counts unique visits to public SVGs — daily-rotating fingerprints, no cookies, no stored IPs, and the Camo proxy problem explained."
+  />
+  <link rel="canonical" href="https://ghcards.raqz.link/methodology" />
+  <meta property="og:title" content="Methodology · kolezka-cards" />
+  <meta property="og:url" content="https://ghcards.raqz.link/methodology" />
+  <meta
+    property="og:description"
+    content="How kolezka-cards counts unique visits to public SVGs — daily-rotating fingerprints, no cookies, no stored IPs."
+  />
+</svelte:head>
+
 <article class="article-wrap">
   <header class="article-head">
     <p class="eyebrow">Methodology</p>
