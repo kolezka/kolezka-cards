@@ -396,6 +396,22 @@
     closeMenu();
   }
 
+  // Portal action — moves the menu out of any ancestor that creates a
+  // containing block for fixed-positioned elements (here: the page's
+  // .glass-2 wrapper has backdrop-filter, which is enough). Without this
+  // the menu's `position: fixed` is anchored to that wrapper, so the
+  // computed (clientX, clientY) coords land far from the actual mouse.
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return {
+      destroy() {
+        if (node.parentNode === document.body) {
+          document.body.removeChild(node);
+        }
+      },
+    };
+  }
+
   // ── Keyboard shortcuts ──────────────────────────────────────────────────
   function isEditableTarget(t: EventTarget | null): boolean {
     if (!(t instanceof HTMLElement)) return false;
@@ -670,22 +686,26 @@
 </div>
 
 {#if menu}
-  <!-- Backdrop catches outside-clicks to dismiss the menu. -->
-  <div
-    class="menu-backdrop"
-    role="presentation"
-    onclick={closeMenu}
-    oncontextmenu={(e) => {
-      e.preventDefault();
-      closeMenu();
-    }}
-  ></div>
-  <div
-    class="context-menu"
-    role="menu"
-    style:left="{menu.x}px"
-    style:top="{menu.y}px"
-  >
+  <div use:portal>
+    <!-- Backdrop catches outside-clicks to dismiss the menu. Portaled to
+         <body> so the .glass-2 ancestor's backdrop-filter (which makes
+         itself the containing block for fixed descendants) doesn't pull
+         the menu away from the cursor. -->
+    <div
+      class="menu-backdrop"
+      role="presentation"
+      onclick={closeMenu}
+      oncontextmenu={(e) => {
+        e.preventDefault();
+        closeMenu();
+      }}
+    ></div>
+    <div
+      class="context-menu"
+      role="menu"
+      style:left="{menu.x}px"
+      style:top="{menu.y}px"
+    >
     <div class="menu-label">Add block</div>
     {#each PALETTE as p (p.kind)}
       <button type="button" class="menu-item" role="menuitem" onclick={() => menuAdd(p.kind)}>
@@ -714,6 +734,7 @@
         <span class="menu-kbd">Del</span>
       </button>
     {/if}
+    </div>
   </div>
 {/if}
 
