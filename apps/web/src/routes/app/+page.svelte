@@ -146,6 +146,8 @@
     color: var(--accent);
     letter-spacing: 0.02em;
     text-transform: lowercase;
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
   .slug {
     color: var(--text-3);
