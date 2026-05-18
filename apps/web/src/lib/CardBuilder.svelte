@@ -155,8 +155,18 @@
 
   let selected = $derived(cfg.blocks.find((b) => b.id === selectedId) ?? null);
 
-  // Drag-to-move logic on the overlay
+  // Drag-to-move and corner-resize logic on the overlay.
+  // Only one of {dragging, resizing} is non-null at a time.
+  type Corner = 'tl' | 'tr' | 'bl' | 'br';
   let dragging = $state<{ id: string; offsetX: number; offsetY: number } | null>(null);
+  let resizing = $state<{
+    id: string;
+    corner: Corner;
+    startX: number;
+    startY: number;
+    startW: number;
+    startH: number;
+  } | null>(null);
 
   function onBlockPointerDown(e: PointerEvent, block: Block) {
     e.stopPropagation();
@@ -168,17 +178,58 @@
     (e.target as Element).setPointerCapture?.(e.pointerId);
   }
 
+  function onHandlePointerDown(e: PointerEvent, block: Block, corner: Corner) {
+    e.stopPropagation();
+    selectedId = block.id;
+    resizing = {
+      id: block.id,
+      corner,
+      startX: block.x,
+      startY: block.y,
+      startW: block.w,
+      startH: block.h,
+    };
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+  }
+
   function onOverlayPointerMove(e: PointerEvent) {
-    if (!dragging) return;
     const svg = e.currentTarget as SVGSVGElement;
     const pt = svgPoint(svg, e.clientX, e.clientY);
-    const nextX = clamp(snap(pt.x - dragging.offsetX), 0, canvasW - 8);
-    const nextY = clamp(snap(pt.y - dragging.offsetY), 0, canvasH - 8);
-    updateBlock(dragging.id, { x: nextX, y: nextY } as Partial<Block>);
+    if (dragging) {
+      const nextX = clamp(snap(pt.x - dragging.offsetX), 0, canvasW - 8);
+      const nextY = clamp(snap(pt.y - dragging.offsetY), 0, canvasH - 8);
+      updateBlock(dragging.id, { x: nextX, y: nextY } as Partial<Block>);
+    } else if (resizing) {
+      const r = resizing;
+      const px = clamp(snap(pt.x), 0, canvasW);
+      const py = clamp(snap(pt.y), 0, canvasH);
+      let nx = r.startX;
+      let ny = r.startY;
+      let nw = r.startW;
+      let nh = r.startH;
+      const right = r.startX + r.startW;
+      const bottom = r.startY + r.startH;
+      if (r.corner === 'tl' || r.corner === 'bl') {
+        nx = clamp(px, 0, right - 8);
+        nw = right - nx;
+      }
+      if (r.corner === 'tr' || r.corner === 'br') {
+        nw = clamp(px - r.startX, 8, canvasW - r.startX);
+      }
+      if (r.corner === 'tl' || r.corner === 'tr') {
+        ny = clamp(py, 0, bottom - 8);
+        nh = bottom - ny;
+      }
+      if (r.corner === 'bl' || r.corner === 'br') {
+        nh = clamp(py - r.startY, 8, canvasH - r.startY);
+      }
+      updateBlock(r.id, { x: nx, y: ny, w: nw, h: nh } as Partial<Block>);
+    }
   }
 
   function onOverlayPointerUp() {
     dragging = null;
+    resizing = null;
   }
 
   function clamp(v: number, lo: number, hi: number): number {
@@ -264,6 +315,28 @@
             tabindex="0"
             aria-label={`${block.kind} block`}
           />
+          {#if block.id === selectedId}
+            <!-- 4 corner resize handles. 8x8 squares centered on each corner.
+                 Each has its own pointerdown so the parent rect's drag handler
+                 doesn't fire. -->
+            {#each [
+              { corner: 'tl' as const, cx: block.x, cy: block.y, cursor: 'nwse-resize' },
+              { corner: 'tr' as const, cx: block.x + block.w, cy: block.y, cursor: 'nesw-resize' },
+              { corner: 'bl' as const, cx: block.x, cy: block.y + block.h, cursor: 'nesw-resize' },
+              { corner: 'br' as const, cx: block.x + block.w, cy: block.y + block.h, cursor: 'nwse-resize' },
+            ] as h (h.corner)}
+              <rect
+                class="handle"
+                x={h.cx - 4}
+                y={h.cy - 4}
+                width="8"
+                height="8"
+                style:cursor={h.cursor}
+                onpointerdown={(e) => onHandlePointerDown(e, block, h.corner)}
+                role="presentation"
+              />
+            {/each}
+          {/if}
         {/each}
       </svg>
     </div>
@@ -561,6 +634,14 @@
     stroke-dasharray: 0;
     stroke-width: 2;
     fill: rgba(255, 255, 255, 0.04);
+  }
+  .overlay .handle {
+    fill: var(--accent);
+    stroke: var(--surface-1);
+    stroke-width: 1;
+  }
+  .overlay .handle:hover {
+    fill: var(--text-1);
   }
   .row {
     display: grid;
