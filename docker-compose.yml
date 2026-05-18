@@ -45,6 +45,8 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       ADMIN_LOGINS: ${ADMIN_LOGINS:-}
+      UMAMI_HOST: ${UMAMI_HOST:-}
+      UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}
     depends_on:
       postgres:
         condition: service_healthy
