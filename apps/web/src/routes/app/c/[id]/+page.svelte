@@ -200,22 +200,20 @@
   </header>
 
   <div class="grid">
-    <!-- Preview + URL (above so the live SVG is the first thing you see) -->
-    <Glass tier={2} rounded="lg" padding="lg" as="section" class="preview">
-      <h2>Preview</h2>
-      <div class="preview-canvas">
-        {#if card.type === 'custom'}
-          <!-- Render client-side so the preview tracks unsaved edits in
-               real time, matching the builder's canvas exactly. -->
-          {@html livePreviewSvg}
-        {:else}
+    {#if card.type !== 'custom'}
+      <!-- Preview + URL. For custom cards the builder's own canvas IS the
+           live preview — showing two of the same thing is just noise. The
+           URL gets surfaced inside the builder section instead. -->
+      <Glass tier={2} rounded="lg" padding="lg" as="section" class="preview">
+        <h2>Preview</h2>
+        <div class="preview-canvas">
           <img src={svgUrl} alt="Card preview" />
-        {/if}
-      </div>
-      <p class="muted preview-url">
-        Live URL: <code>{card.url}</code>
-      </p>
-    </Glass>
+        </div>
+        <p class="muted preview-url">
+          Live URL: <code>{card.url}</code>
+        </p>
+      </Glass>
+    {/if}
 
     <!-- Config panel -->
     <Glass tier={3} rounded="lg" padding="lg" as="section" class="builder">
@@ -380,6 +378,9 @@
       {/if}
 
       {#if card.type === 'custom'}
+        <p class="muted preview-url">
+          Live URL: <code>{card.url}</code>
+        </p>
         {#await import('$lib/CardBuilder.svelte')}
           <p class="muted">Loading builder…</p>
         {:then Mod}

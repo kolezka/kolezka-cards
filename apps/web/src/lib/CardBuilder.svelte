@@ -609,6 +609,10 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
+    min-width: 0;
+  }
+  .canvas-fields :global(.glass-input) {
+    min-width: 0;
   }
   .hint {
     font-size: 12px;
@@ -684,6 +688,14 @@
     grid-template-columns: 1fr 1fr;
     gap: 8px;
     margin-bottom: 10px;
+    min-width: 0;
+  }
+  .row :global(.glass-input) {
+    min-width: 0;
+  }
+  .row :global(.glass-input input) {
+    min-width: 0;
+    width: 100%;
   }
   .inspector :global(.glass-input),
   .inspector :global(.glass-select),
