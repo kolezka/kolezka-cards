@@ -136,8 +136,12 @@
     }
   }
 
-  function addBlock(kind: Block['kind']) {
+  function addBlock(kind: Block['kind'], at?: { x: number; y: number }) {
     const block = defaultBlock(kind);
+    if (at) {
+      block.x = clamp(snap(at.x), 0, Math.max(0, canvasW - block.w));
+      block.y = clamp(snap(at.y), 0, Math.max(0, canvasH - block.h));
+    }
     commit({ blocks: [...cfg.blocks, block] });
     selectedId = block.id;
   }
@@ -145,6 +149,39 @@
   function removeBlock(id: string) {
     commit({ blocks: cfg.blocks.filter((b) => b.id !== id) });
     if (selectedId === id) selectedId = null;
+  }
+
+  function duplicateBlock(id: string) {
+    const src = cfg.blocks.find((b) => b.id === id);
+    if (!src) return;
+    const copy = {
+      ...(src as Block),
+      id: newId(),
+      x: clamp(snap(src.x + GRID * 2), 0, Math.max(0, canvasW - src.w)),
+      y: clamp(snap(src.y + GRID * 2), 0, Math.max(0, canvasH - src.h)),
+    } as Block;
+    commit({ blocks: [...cfg.blocks, copy] });
+    selectedId = copy.id;
+  }
+
+  function bringToFront(id: string) {
+    const idx = cfg.blocks.findIndex((b) => b.id === id);
+    if (idx === -1 || idx === cfg.blocks.length - 1) return;
+    const next = cfg.blocks.slice();
+    const [b] = next.splice(idx, 1);
+    if (!b) return;
+    next.push(b);
+    commit({ blocks: next });
+  }
+
+  function sendToBack(id: string) {
+    const idx = cfg.blocks.findIndex((b) => b.id === id);
+    if (idx <= 0) return;
+    const next = cfg.blocks.slice();
+    const [b] = next.splice(idx, 1);
+    if (!b) return;
+    next.unshift(b);
+    commit({ blocks: next });
   }
 
   function updateBlock(id: string, patch: Partial<Block>) {
@@ -286,13 +323,125 @@
     if (e.target === e.currentTarget) selectedId = null;
   }
 
-  function setSizeField(field: 'width' | 'height', raw: string) {
-    const n = raw.trim() === '' ? undefined : Number(raw);
-    const next = { ...(cfg.size ?? {}) };
-    if (n === undefined || Number.isNaN(n)) delete next[field];
-    else next[field] = n;
-    commit({ size: Object.keys(next).length > 0 ? next : undefined });
+  // ── Context menu ────────────────────────────────────────────────────────
+  let overlayEl = $state<SVGSVGElement | null>(null);
+  type MenuState = {
+    x: number;
+    y: number;
+    canvasX: number;
+    canvasY: number;
+    targetId: string | null;
+  };
+  let menu = $state<MenuState | null>(null);
+  const MENU_WIDTH = 200;
+  const MENU_HEIGHT_BLOCK = 360;
+  const MENU_HEIGHT_EMPTY = 220;
+
+  function openMenuAt(clientX: number, clientY: number, targetId: string | null) {
+    let canvasX = 0;
+    let canvasY = 0;
+    if (overlayEl) {
+      const pt = svgPoint(overlayEl, clientX, clientY);
+      canvasX = pt.x;
+      canvasY = pt.y;
+    }
+    const h = targetId ? MENU_HEIGHT_BLOCK : MENU_HEIGHT_EMPTY;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const x = Math.min(clientX, vw - MENU_WIDTH - 8);
+    const y = Math.min(clientY, vh - h - 8);
+    menu = { x, y, canvasX, canvasY, targetId };
   }
+
+  function openCanvasMenu(e: MouseEvent) {
+    // Right-clicking a block bubbles up to canvas-wrap. The block handler
+    // already opened a block-targeted menu and stopped propagation; if we
+    // reach here the click was on empty canvas area.
+    e.preventDefault();
+    openMenuAt(e.clientX, e.clientY, null);
+  }
+
+  function openBlockMenu(e: MouseEvent, block: Block) {
+    e.preventDefault();
+    e.stopPropagation();
+    selectedId = block.id;
+    openMenuAt(e.clientX, e.clientY, block.id);
+  }
+
+  function closeMenu() {
+    menu = null;
+  }
+
+  function menuAdd(kind: Block['kind']) {
+    const m = menu;
+    if (!m) return;
+    addBlock(kind, { x: m.canvasX, y: m.canvasY });
+    closeMenu();
+  }
+
+  function menuDuplicate() {
+    if (menu?.targetId) duplicateBlock(menu.targetId);
+    closeMenu();
+  }
+  function menuBringToFront() {
+    if (menu?.targetId) bringToFront(menu.targetId);
+    closeMenu();
+  }
+  function menuSendToBack() {
+    if (menu?.targetId) sendToBack(menu.targetId);
+    closeMenu();
+  }
+  function menuDelete() {
+    if (menu?.targetId) removeBlock(menu.targetId);
+    closeMenu();
+  }
+
+  // ── Keyboard shortcuts ──────────────────────────────────────────────────
+  function isEditableTarget(t: EventTarget | null): boolean {
+    if (!(t instanceof HTMLElement)) return false;
+    const tag = t.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    return t.isContentEditable;
+  }
+
+  function onKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      if (menu) {
+        closeMenu();
+        return;
+      }
+      if (selectedId) {
+        selectedId = null;
+      }
+      return;
+    }
+    // Block-targeted shortcuts must not fire while typing in a form field.
+    if (isEditableTarget(e.target)) return;
+    if (!selectedId) return;
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
+      removeBlock(selectedId);
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+      e.preventDefault();
+      duplicateBlock(selectedId);
+    }
+  }
+
+  $effect(() => {
+    window.addEventListener('keydown', onKeydown);
+    const onScroll = () => closeMenu();
+    const onResize = () => closeMenu();
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('keydown', onKeydown);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
+    };
+  });
+
 </script>
 
 <div class="builder">
@@ -306,24 +455,18 @@
         </button>
       {/each}
     </div>
-
-    <h3 class="canvas-h">Canvas</h3>
-    <div class="canvas-fields">
-      <GlassInput
-        value={cfg.size?.width !== undefined ? String(cfg.size.width) : '480'}
-        label="Width"
-        oninput={(e) => setSizeField('width', (e.target as HTMLInputElement).value)}
-      />
-      <GlassInput
-        value={cfg.size?.height !== undefined ? String(cfg.size.height) : '300'}
-        label="Height"
-        oninput={(e) => setSizeField('height', (e.target as HTMLInputElement).value)}
-      />
-    </div>
-    <p class="muted hint">Drag blocks to move. Snaps to 8px.</p>
+    <p class="muted hint">
+      Drag to move. Right-click for add / duplicate / delete. Del removes, ⌘D duplicates,
+      Esc deselects. Canvas size lives below.
+    </p>
   </aside>
 
-  <div class="canvas-wrap" onclick={maybeDeselect} role="presentation">
+  <div
+    class="canvas-wrap"
+    onclick={maybeDeselect}
+    oncontextmenu={openCanvasMenu}
+    role="presentation"
+  >
     <div class="canvas" style="aspect-ratio: {canvasW}/{canvasH};">
       <div class="svg-bg" aria-hidden="true">
         <!-- Real renderer output, used as a faithful preview. -->
@@ -331,6 +474,7 @@
       </div>
       <svg
         class="overlay"
+        bind:this={overlayEl}
         viewBox="0 0 {canvasW} {canvasH}"
         preserveAspectRatio="none"
         onpointermove={onOverlayPointerMove}
@@ -347,6 +491,7 @@
             width={block.w}
             height={block.h}
             onpointerdown={(e) => onBlockPointerDown(e, block)}
+            oncontextmenu={(e) => openBlockMenu(e, block)}
             role="button"
             tabindex="0"
             aria-label={`${block.kind} block`}
@@ -524,6 +669,54 @@
   </aside>
 </div>
 
+{#if menu}
+  <!-- Backdrop catches outside-clicks to dismiss the menu. -->
+  <div
+    class="menu-backdrop"
+    role="presentation"
+    onclick={closeMenu}
+    oncontextmenu={(e) => {
+      e.preventDefault();
+      closeMenu();
+    }}
+  ></div>
+  <div
+    class="context-menu"
+    role="menu"
+    style:left="{menu.x}px"
+    style:top="{menu.y}px"
+  >
+    <div class="menu-label">Add block</div>
+    {#each PALETTE as p (p.kind)}
+      <button type="button" class="menu-item" role="menuitem" onclick={() => menuAdd(p.kind)}>
+        <span class="menu-glyph" aria-hidden="true">{glyph(p.kind)}</span>
+        <span>Add {p.label.toLowerCase()}</span>
+      </button>
+    {/each}
+    {#if menu.targetId}
+      <div class="menu-sep" role="separator"></div>
+      <button type="button" class="menu-item" role="menuitem" onclick={menuDuplicate}>
+        <span class="menu-glyph" aria-hidden="true">⎘</span>
+        <span>Duplicate</span>
+        <span class="menu-kbd">⌘D</span>
+      </button>
+      <button type="button" class="menu-item" role="menuitem" onclick={menuBringToFront}>
+        <span class="menu-glyph" aria-hidden="true">▲</span>
+        <span>Bring to front</span>
+      </button>
+      <button type="button" class="menu-item" role="menuitem" onclick={menuSendToBack}>
+        <span class="menu-glyph" aria-hidden="true">▼</span>
+        <span>Send to back</span>
+      </button>
+      <button type="button" class="menu-item danger" role="menuitem" onclick={menuDelete}>
+        <span class="menu-glyph" aria-hidden="true">✕</span>
+        <span>Delete</span>
+        <span class="menu-kbd">Del</span>
+      </button>
+    {/if}
+  </div>
+{/if}
+
 <script lang="ts" module>
   function glyph(kind: string): string {
     switch (kind) {
@@ -576,9 +769,6 @@
     color: var(--text-3);
     font-weight: 600;
   }
-  .canvas-h {
-    margin-top: 18px;
-  }
   .palette-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -605,18 +795,101 @@
     font-size: 18px;
     color: var(--accent);
   }
-  .canvas-fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    min-width: 0;
-  }
-  .canvas-fields :global(.glass-input) {
-    min-width: 0;
-  }
   .hint {
     font-size: 12px;
     margin: 10px 0 0;
+  }
+
+  /* ── Context menu ─────────────────────────────────────────────────── */
+  .menu-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: transparent;
+  }
+  .context-menu {
+    position: fixed;
+    z-index: 100;
+    min-width: 200px;
+    padding: 6px;
+    background: var(--glass-3);
+    border: 1px solid var(--ring-soft);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-2);
+    backdrop-filter: blur(var(--blur-md)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--blur-md)) saturate(180%);
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    font: 500 13px var(--font-sans);
+    color: var(--text-1);
+    animation: menu-in 80ms var(--ease-glass);
+  }
+  @keyframes menu-in {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  .menu-label {
+    padding: 6px 10px 2px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+  .menu-item {
+    display: grid;
+    grid-template-columns: 18px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 7px 10px;
+    background: transparent;
+    border: 0;
+    border-radius: var(--radius-sm);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-glass);
+  }
+  .menu-item:hover,
+  .menu-item:focus-visible {
+    background: var(--glass-4);
+    outline: none;
+  }
+  .menu-item.danger {
+    color: var(--danger);
+  }
+  .menu-item.danger:hover {
+    background: oklch(60% 0.21 25 / 0.18);
+  }
+  .menu-glyph {
+    text-align: center;
+    color: var(--accent);
+    font-size: 14px;
+  }
+  .menu-item.danger .menu-glyph {
+    color: var(--danger);
+  }
+  .menu-kbd {
+    font: 500 11px var(--font-mono);
+    color: var(--text-3);
+    padding: 1px 6px;
+    background: var(--glass-2);
+    border: 1px solid var(--ring-soft);
+    border-radius: var(--radius-sm);
+  }
+  .menu-sep {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--ring-soft);
   }
   .canvas-wrap {
     position: relative;
@@ -690,16 +963,25 @@
     margin-bottom: 10px;
     min-width: 0;
   }
-  .row :global(.glass-input) {
+  /* The inspector / row grid items wrap GlassInput / GlassSelect whose
+     root is `.field`. Without min-width: 0 grid items can't shrink below
+     the input's intrinsic ~180px content-size, which overflows the
+     280px-wide inspector aside. The dead `:global(.glass-input)` rules
+     this replaces never matched anything — GlassInput's wrapper is
+     `.field`, not `.glass-input`. */
+  .row > :global(.field),
+  .inspector > :global(.field) {
     min-width: 0;
   }
-  .row :global(.glass-input input) {
-    min-width: 0;
+  .row :global(input),
+  .row :global(select),
+  .inspector :global(input),
+  .inspector :global(select) {
+    box-sizing: border-box;
     width: 100%;
+    min-width: 0;
   }
-  .inspector :global(.glass-input),
-  .inspector :global(.glass-select),
-  .inspector :global(.glass-toggle) {
+  .inspector > :global(.field) {
     margin-bottom: 10px;
   }
   .kind-pill {
