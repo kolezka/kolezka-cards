@@ -9,7 +9,7 @@
     StatBlock,
     TextBlock,
   } from '@kc/shared/zod/card-config';
-  import { Glass, GlassButton, GlassInput, GlassSelect, GlassToggle } from '$lib/ui';
+  import { GlassInput, GlassSelect, GlassToggle } from '$lib/ui';
 
   // Controlled component: parent passes the current cfg snapshot and a
   // change handler. Avoids `bind:` type friction with the page's loose
@@ -460,13 +460,6 @@
 
 </script>
 
-<p class="builder-help muted">
-  <strong>Right-click</strong> the canvas to add a block at that spot, or right-click a
-  block for <em>duplicate</em>, <em>reorder</em>, and <em>delete</em>. Drag to move
-  (snaps to 8px). Shortcuts: <kbd>Del</kbd> remove, <kbd>⌘D</kbd> duplicate,
-  <kbd>Esc</kbd> deselect. Canvas size lives below.
-</p>
-
 <div class="builder">
   <div
     class="canvas-wrap"
@@ -531,37 +524,87 @@
   </div>
 
   <aside class="inspector">
-    <h3>Inspector</h3>
     {#if !selected}
-      <p class="muted">Click a block on the canvas to edit it. Or add one from the palette.</p>
+      <h3>How it works</h3>
+      <p class="help-line">
+        <strong>Right-click</strong> the canvas to add a block at that spot, or
+        right-click a block for <em>duplicate</em>, <em>reorder</em>, and
+        <em>delete</em>.
+      </p>
+      <p class="help-line">Drag blocks to move (snaps to 8px).</p>
+      <ul class="kbd-list">
+        <li><kbd>Del</kbd> <span>remove selected</span></li>
+        <li><kbd>⌘D</kbd> <span>duplicate selected</span></li>
+        <li><kbd>Esc</kbd> <span>deselect</span></li>
+      </ul>
+      <p class="muted help-foot">Canvas size lives below.</p>
     {:else}
-      <p class="kind-pill">{selected.kind}</p>
+      <header class="insp-head">
+        <span class="kind-pill">{selected.kind}</span>
+        <div class="head-actions">
+          <button
+            type="button"
+            class="icon-btn"
+            title="Duplicate (⌘D)"
+            aria-label="Duplicate block"
+            onclick={() => duplicateBlock(selected!.id)}
+          >⎘</button>
+          <button
+            type="button"
+            class="icon-btn danger"
+            title="Delete (Del)"
+            aria-label="Delete block"
+            onclick={() => removeBlock(selected!.id)}
+          >✕</button>
+        </div>
+      </header>
 
-      <div class="row">
-        <GlassInput
-          value={String(selected.x)}
-          label="X"
-          oninput={(e) => updateBlock(selected!.id, { x: snap(Number((e.target as HTMLInputElement).value) || 0) } as Partial<Block>)}
-        />
-        <GlassInput
-          value={String(selected.y)}
-          label="Y"
-          oninput={(e) => updateBlock(selected!.id, { y: snap(Number((e.target as HTMLInputElement).value) || 0) } as Partial<Block>)}
-        />
-      </div>
-      <div class="row">
-        <GlassInput
-          value={String(selected.w)}
-          label="W"
-          oninput={(e) => updateBlock(selected!.id, { w: snap(Number((e.target as HTMLInputElement).value) || 8) } as Partial<Block>)}
-        />
-        <GlassInput
-          value={String(selected.h)}
-          label="H"
-          oninput={(e) => updateBlock(selected!.id, { h: snap(Number((e.target as HTMLInputElement).value) || 8) } as Partial<Block>)}
-        />
-      </div>
+      <section class="insp-section">
+        <h4 class="insp-h">Position</h4>
+        <div class="row">
+          <GlassInput
+            type="number"
+            step={8}
+            min={0}
+            value={String(selected.x)}
+            label="X"
+            oninput={(e) => updateBlock(selected!.id, { x: snap(Number((e.target as HTMLInputElement).value) || 0) } as Partial<Block>)}
+          />
+          <GlassInput
+            type="number"
+            step={8}
+            min={0}
+            value={String(selected.y)}
+            label="Y"
+            oninput={(e) => updateBlock(selected!.id, { y: snap(Number((e.target as HTMLInputElement).value) || 0) } as Partial<Block>)}
+          />
+        </div>
+      </section>
 
+      <section class="insp-section">
+        <h4 class="insp-h">Size</h4>
+        <div class="row">
+          <GlassInput
+            type="number"
+            step={8}
+            min={8}
+            value={String(selected.w)}
+            label="W"
+            oninput={(e) => updateBlock(selected!.id, { w: snap(Number((e.target as HTMLInputElement).value) || 8) } as Partial<Block>)}
+          />
+          <GlassInput
+            type="number"
+            step={8}
+            min={8}
+            value={String(selected.h)}
+            label="H"
+            oninput={(e) => updateBlock(selected!.id, { h: snap(Number((e.target as HTMLInputElement).value) || 8) } as Partial<Block>)}
+          />
+        </div>
+      </section>
+
+      <section class="insp-section">
+        <h4 class="insp-h">Content</h4>
       {#if selected.kind === 'text'}
         {@const t = selected as TextBlock}
         <GlassInput
@@ -665,13 +708,10 @@
           label="Alt text"
           oninput={(e) => updateBlock(im.id, { alt: (e.target as HTMLInputElement).value } as Partial<ImageBlock>)}
         />
+      {:else if selected.kind === 'divider'}
+        <p class="muted help-foot">Dividers have no extra options.</p>
       {/if}
-
-      <div class="inspector-actions">
-        <GlassButton variant="danger" size="sm" onclick={() => removeBlock(selected!.id)}>
-          Delete block
-        </GlassButton>
-      </div>
+      </section>
     {/if}
   </aside>
 </div>
@@ -780,28 +820,103 @@
     color: var(--text-3);
     font-weight: 600;
   }
-  .builder-help {
+  /* ── Inspector empty state (help / shortcuts) ─────────────────────── */
+  .help-line {
     font-size: 13px;
-    margin: 0 0 12px;
-    padding: 10px 12px;
-    background: var(--glass-2);
-    border: 1px solid var(--ring-soft);
-    border-radius: var(--radius-md);
     line-height: 1.55;
+    margin: 0 0 10px;
+    color: var(--text-2);
   }
-  .builder-help kbd {
-    display: inline-block;
-    margin: 0 1px;
-    padding: 1px 6px;
+  .help-line strong {
+    color: var(--text-1);
+  }
+  .help-line em {
+    font-style: normal;
+    color: var(--text-1);
+  }
+  .kbd-list {
+    list-style: none;
+    margin: 6px 0 12px;
+    padding: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .kbd-list li {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    align-items: center;
+    gap: 10px;
+    font-size: 12.5px;
+    color: var(--text-2);
+  }
+  .kbd-list kbd {
+    justify-self: start;
+    padding: 2px 8px;
     background: var(--glass-3);
     border: 1px solid var(--ring-soft);
     border-radius: var(--radius-sm);
     font: 500 11px var(--font-mono);
-    color: var(--text-2);
-  }
-  .builder-help em {
-    font-style: normal;
     color: var(--text-1);
+  }
+  .help-foot {
+    font-size: 12px;
+    margin: 8px 0 0;
+  }
+
+  /* ── Inspector header (block actions) ─────────────────────────────── */
+  .insp-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0 0 14px;
+  }
+  .head-actions {
+    display: flex;
+    gap: 4px;
+  }
+  .icon-btn {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: var(--glass-3);
+    border: 1px solid var(--ring-soft);
+    border-radius: var(--radius-sm);
+    color: var(--text-1);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--dur-fast) var(--ease-glass),
+      color var(--dur-fast) var(--ease-glass);
+  }
+  .icon-btn:hover {
+    background: var(--glass-4);
+  }
+  .icon-btn.danger:hover {
+    background: oklch(60% 0.21 25 / 0.18);
+    color: var(--danger);
+  }
+
+  /* ── Inspector grouped sections ──────────────────────────────────── */
+  .insp-section {
+    margin: 0 0 14px;
+  }
+  .insp-section:last-child {
+    margin-bottom: 0;
+  }
+  .insp-h {
+    margin: 0 0 8px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    font-weight: 600;
+  }
+  .insp-section .row {
+    margin-bottom: 0;
   }
 
   /* ── Context menu ─────────────────────────────────────────────────── */
@@ -990,18 +1105,14 @@
   }
   .kind-pill {
     display: inline-block;
-    margin: 0 0 12px;
-    padding: 3px 8px;
+    padding: 3px 10px;
     background: var(--glass-3);
     border: 1px solid var(--ring-soft);
     border-radius: var(--radius-pill);
     font: 600 11px var(--font-mono);
     color: var(--text-2);
-  }
-  .inspector-actions {
-    margin-top: 12px;
-    display: flex;
-    justify-content: flex-end;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
   .muted {
     color: var(--text-3);

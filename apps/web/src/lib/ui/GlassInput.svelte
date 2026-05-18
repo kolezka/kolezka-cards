@@ -1,7 +1,7 @@
 <script lang="ts">
   type Props = {
     value?: string;
-    type?: 'text' | 'email' | 'url' | 'password' | 'search';
+    type?: 'text' | 'email' | 'url' | 'password' | 'search' | 'number';
     placeholder?: string;
     label?: string;
     help?: string;
@@ -11,6 +11,9 @@
     autocomplete?: AutoFill;
     id?: string;
     class?: string;
+    step?: number | string;
+    min?: number | string;
+    max?: number | string;
     oninput?: (e: Event) => void;
     onchange?: (e: Event) => void;
   };
@@ -27,6 +30,9 @@
     autocomplete,
     id,
     class: extraClass = '',
+    step,
+    min,
+    max,
     oninput,
     onchange,
   }: Props = $props();
@@ -49,6 +55,9 @@
     {disabled}
     {required}
     {autocomplete}
+    {step}
+    {min}
+    {max}
     aria-invalid={!!error}
     aria-describedby={error ? `${inputId}-err` : help ? `${inputId}-help` : undefined}
     {oninput}
