@@ -217,22 +217,10 @@
         to fetch your coding-time statistics. Remove the card to stop these requests.
       </li>
       <li>
-        <strong>Umami</strong> (<code>umami.raqz.link</code>) — self-hosted, cookieless
-        product analytics. The HTML pages load Umami's JS beacon (aggregated
-        pageviews, referrers, country, browser). Every rendered card SVG also
-        embeds a 1x1 tracking pixel served from our own
-        <code>/p/&lt;cardId&gt;.gif</code> endpoint; when the pixel is loaded
-        the server fire-and-forgets a <code>card-pixel</code> event to Umami
-        with the card type, the referrer host, and a Camo-vs-direct flag.
-        Browsers block external resource loads inside SVGs rendered via
-        <code>&lt;img&gt;</code> (which is how GitHub Camo serves them), so
-        in practice the pixel only fires for direct-view contexts (standalone
-        URL opens, <code>&lt;object&gt;</code>/<code>&lt;iframe&gt;</code> embeds,
-        and inline SVG usage). Visitor IPs are not stored (Umami hashes them
-        in-memory for the daily-unique signal, then discards). No cookies, no
-        cross-site tracking, no advertising identifiers. The instance runs on
-        the same infrastructure as <code>ghcards.raqz.link</code>; no
-        third-party data flow.
+        <strong>Umami</strong> (<code>umami.raqz.link</code>) — self-hosted,
+        cookieless product analytics for HTML pages and card views. No cookies,
+        no cross-site tracking, no advertising identifiers, no stored IPs. Runs
+        on the same infrastructure as <code>ghcards.raqz.link</code>.
       </li>
     </ul>
 

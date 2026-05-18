@@ -632,13 +632,11 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
       if (visit.wasUnique) bumpCounter('render.unique');
     }
 
-    // Inject a self-hosted Umami tracking pixel. Most embeds reach us via
-    // GitHub's Camo proxy where the SVG is consumed by `<img>` — browsers
-    // block external resource loads in img-mode SVGs, so the pixel only
-    // fires for standalone views, `<object>`/`<iframe>` embeds, and inline
-    // SVG usage. The pixel endpoint itself filters self-traffic by referer.
-    const pixelUrl = `${env.BASE_URL.replace(/\/$/, '')}/p/${card.id}.gif?t=${Date.now()}`;
-    const pixelTag = `<image href="${pixelUrl}" x="-1" y="-1" width="1" height="1" aria-hidden="true" preserveAspectRatio="none"/>`;
+    // Inject an Umami tracking pixel pointing directly at the public share
+    // URL. The browser fetches the URL on render, which Umami records as a
+    // pageview. Same SVG-as-<img> caveat applies: GitHub Camo embeds won't
+    // fire it because browsers block external loads in img-mode SVGs.
+    const pixelTag = `<image href="https://umami.raqz.link/p/MmvVRTw36" x="-1" y="-1" width="1" height="1" aria-hidden="true" preserveAspectRatio="none"/>`;
     svg = svg.replace(/<\/svg>\s*$/, `${pixelTag}</svg>`);
 
     c.header('Content-Type', 'image/svg+xml; charset=utf-8');

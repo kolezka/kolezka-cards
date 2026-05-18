@@ -16,7 +16,6 @@ import { createDevAnalyticsRoute } from './routes/dev-analytics';
 import { healthz } from './routes/healthz';
 import { createMeRoute } from './routes/me';
 import { metrics as metricsRoute } from './routes/metrics';
-import { createPixelRoute } from './routes/pixel';
 import { createRenderCardRoute } from './routes/render-card';
 import { bumpCounter } from './services/metrics';
 
@@ -70,7 +69,6 @@ app.use('/api/*', csrfGuard(env));
 app.route('/', healthz);
 app.route('/', metricsRoute);
 app.route('/', createRenderCardRoute(db));
-app.route('/', createPixelRoute(db));
 app.route('/', createAuthRoute(db, env));
 app.route('/', createMeRoute(db, env));
 app.route('/', createCardsRoute(db, env));
@@ -83,7 +81,7 @@ if (env.WEB_BUILD_DIR) {
     '*',
     staticServe({
       root: env.WEB_BUILD_DIR,
-      reservedPrefixes: ['/api', '/auth', '/c', '/p', '/healthz', '/metrics'],
+      reservedPrefixes: ['/api', '/auth', '/c', '/healthz', '/metrics'],
       fallback: 'index.html',
     }),
   );
