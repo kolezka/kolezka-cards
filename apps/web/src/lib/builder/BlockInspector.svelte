@@ -150,7 +150,8 @@
     position: sticky;
     top: 80px;
     max-height: calc(100vh - 100px);
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
   h3 {
     margin: 0 0 10px;
@@ -271,6 +272,15 @@
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
+  }
+  /* Native number spinners contribute intrinsic width beyond `width: 100%`
+     in webkit, which used to push the inspector into a horizontal scroll.
+     `appearance: none` on the input itself is set in GlassInput; this hides
+     the residual ::-webkit spinner pseudo-elements that webkit still draws. */
+  .inspector :global(input[type='number']::-webkit-outer-spin-button),
+  .inspector :global(input[type='number']::-webkit-inner-spin-button) {
+    appearance: none;
+    margin: 0;
   }
   .inspector > :global(.field) {
     margin-bottom: 10px;
