@@ -28,6 +28,12 @@ export interface GitHubClientOptions {
   ttlMs?: number;
   fetcher?: typeof fetch;
   baseUrl?: string;
+  /**
+   * Optional PAT. When set, lifts the GitHub REST API rate limit from
+   * 60 req/hour (unauthenticated, shared per IP) to 5000 req/hour. A
+   * fine-grained token with read-only public-repo access is sufficient.
+   */
+  token?: string;
 }
 
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000;
@@ -41,6 +47,7 @@ export function createGitHubClient(opts: GitHubClientOptions = {}): GitHubClient
   const ttl = opts.ttlMs ?? DEFAULT_TTL_MS;
   const fetcher = opts.fetcher ?? fetch;
   const baseUrl = opts.baseUrl ?? 'https://api.github.com';
+  const token = opts.token;
   const cache = new Map<string, CacheEntry<unknown>>();
 
   async function getJson<T>(url: string): Promise<T | null> {
@@ -49,12 +56,12 @@ export function createGitHubClient(opts: GitHubClientOptions = {}): GitHubClient
     if (cached && cached.expiresAt > now) {
       return cached.value as T | null;
     }
-    const res = await fetcher(url, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'kolezka-cards',
-      },
-    });
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github+json',
+      'User-Agent': 'kolezka-cards',
+    };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetcher(url, { headers });
     let value: T | null = null;
     if (res.ok) {
       value = (await res.json()) as T;

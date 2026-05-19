@@ -49,6 +49,15 @@ const EnvSchema = z
      * `users.login`.
      */
     ADMIN_LOGINS: emptyToUndefined,
+    /**
+     * Personal-access token for GitHub REST API calls (cards that need
+     * profile/repo data). Optional but strongly recommended — the
+     * unauthenticated rate limit is 60 req/hour per IP, which a handful
+     * of card views can exhaust. With a token the limit is 5000 req/hour.
+     * No scopes needed; a fine-grained PAT with read-only public-repo
+     * access is sufficient.
+     */
+    GITHUB_TOKEN: emptyToUndefined,
   })
   .superRefine((env, ctx) => {
     const idSet = Boolean(env.GITHUB_CLIENT_ID);

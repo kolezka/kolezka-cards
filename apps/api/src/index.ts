@@ -68,8 +68,9 @@ app.use('/api/*', async (c, next) => {
 app.use('/api/*', csrfGuard(env));
 
 // Shared between render and me routes so the same in-memory cache covers
-// both card SVG renders and the preview stats endpoint.
-const github = createGitHubClient();
+// both card SVG renders and the preview stats endpoint. The token (when
+// set) lifts the REST API rate limit from 60/hr to 5000/hr.
+const github = createGitHubClient({ token: env.GITHUB_TOKEN });
 
 app.route('/', healthz);
 app.route('/', metricsRoute);

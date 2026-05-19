@@ -44,6 +44,10 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your env}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      # Optional PAT; lifts the GitHub REST API rate limit from 60/hr
+      # to 5000/hr so heavy use (profile-stats, repo-stats, gist-counter,
+      # profile-summary, custom cards with github.* sources) doesn't 502.
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
       ADMIN_LOGINS: ${ADMIN_LOGINS:-}
     depends_on:
       postgres:

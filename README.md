@@ -165,6 +165,7 @@ See `.env.example` for the full annotated list.
 | `DATABASE_URL` | ✓¹ | Explicit `postgresql://…` connection string. Use this instead of `POSTGRES_*` to point at an external PG. |
 | `NODE_ENV` | — | `development` / `test` / `production`. |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | — | Both or neither. `/auth/github` returns 503 if missing. Callback URL: `$BASE_URL/auth/github/callback`. |
+| `GITHUB_TOKEN` | — | Strongly recommended. Fine-grained PAT with read-only public-repo access. Without it, GitHub's REST API rate-limits to 60 req/hour per IP, which a handful of `profile-stats`, `repo-stats`, `gist-counter`, `profile-summary`, or `custom` (with `github.*` sources) card views exhaust. With it the limit is 5000 req/hour. |
 | `ADMIN_LOGINS` | — | Comma-separated GitHub logins granted admin access (`/app/admin`). Matched case-insensitively. |
 | `SENTRY_DSN` | — | When set, lazy-loads `@sentry/node` and forwards unhandled errors. |
 | `WEB_BUILD_DIR` | — | Production-only. Path to the SvelteKit `build/` for Hono to serve as static. |
