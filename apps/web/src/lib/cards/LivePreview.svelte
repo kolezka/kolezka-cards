@@ -7,8 +7,9 @@
     cardUrl: string;
     cfg: { size?: { width?: number; height?: number } } & Record<string, unknown>;
     fallbackImgUrl: string;
+    login?: string;
   };
-  let { cardType, cardUrl, cfg, fallbackImgUrl }: Props = $props();
+  let { cardType, cardUrl, cfg, fallbackImgUrl, login }: Props = $props();
 
   // Live preview — render every card type client-side from the in-memory
   // cfg so edits appear immediately, without a save round-trip. Last-good
@@ -24,7 +25,7 @@
       width: cfg.size?.width,
       height: cfg.size?.height,
     };
-    const next = renderPreview(cardType, cfg, dims);
+    const next = renderPreview(cardType, cfg, dims, login);
     if (next) svg = next;
   });
 </script>

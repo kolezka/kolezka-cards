@@ -167,6 +167,7 @@
         cardUrl={card.url}
         cfg={cfg as never}
         fallbackImgUrl={svgUrl}
+        login={card.ownerLogin}
       />
     {/if}
 

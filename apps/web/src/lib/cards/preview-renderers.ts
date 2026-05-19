@@ -40,8 +40,18 @@ export type PreviewDims = { width?: number; height?: number };
  * Returns an empty string for unknown types or when the renderer throws on
  * an in-progress invalid cfg (caller keeps the last good preview in that
  * case).
+ *
+ * `login`, when provided, overrides the placeholder `octocat` so the preview
+ * shows the card owner's handle (the real numeric data still uses mocks —
+ * those would need a network round-trip to the GitHub API).
  */
-export function renderPreview(cardType: string, cfg: unknown, dims: PreviewDims): string {
+export function renderPreview(
+  cardType: string,
+  cfg: unknown,
+  dims: PreviewDims,
+  login?: string,
+): string {
+  const user = login && login.length > 0 ? login : PREVIEW_LOGIN;
   try {
     switch (cardType) {
       case 'custom':
@@ -58,7 +68,7 @@ export function renderPreview(cardType: string, cfg: unknown, dims: PreviewDims)
         return renderProfileStats(
           cfg as ProfileStatsConfig,
           {
-            login: PREVIEW_LOGIN,
+            login: user,
             publicRepos: 32,
             followers: 421,
             following: 87,
@@ -68,7 +78,7 @@ export function renderPreview(cardType: string, cfg: unknown, dims: PreviewDims)
         );
       case 'repo-stats': {
         const c = cfg as RepoStatsConfig;
-        const [owner = PREVIEW_LOGIN, name = 'awesome-thing'] = (c.repo ?? '').split('/');
+        const [owner = user, name = 'awesome-thing'] = (c.repo ?? '').split('/');
         return renderRepoStats(
           c,
           {
@@ -86,7 +96,7 @@ export function renderPreview(cardType: string, cfg: unknown, dims: PreviewDims)
         return renderStreak(
           cfg as StreakConfig,
           {
-            login: PREVIEW_LOGIN,
+            login: user,
             totalThisYear: 1842,
             currentStreak: 17,
             longestStreak: 64,
@@ -100,7 +110,7 @@ export function renderPreview(cardType: string, cfg: unknown, dims: PreviewDims)
         return renderProfileSummary(
           cfg as ProfileSummaryConfig,
           {
-            login: PREVIEW_LOGIN,
+            login: user,
             publicRepos: 32,
             totalThisYear: 1842,
             joinedAt: '2014-04-01',
@@ -111,20 +121,16 @@ export function renderPreview(cardType: string, cfg: unknown, dims: PreviewDims)
       case 'languages':
         return renderLanguages(
           cfg as LanguagesConfig,
-          { login: PREVIEW_LOGIN, languages: MOCK_LANGUAGES },
+          { login: user, languages: MOCK_LANGUAGES },
           dims,
         );
       case 'top-repos':
-        return renderTopRepos(
-          cfg as TopReposConfig,
-          { login: PREVIEW_LOGIN, repos: MOCK_TOP_REPOS },
-          dims,
-        );
+        return renderTopRepos(cfg as TopReposConfig, { login: user, repos: MOCK_TOP_REPOS }, dims);
       case 'followers-sparkline':
         return renderFollowersSparkline(
           cfg as FollowersSparklineConfig,
           {
-            login: PREVIEW_LOGIN,
+            login: user,
             currentFollowers: 421,
             history: MOCK_FOLLOWERS_HISTORY,
           },
@@ -134,7 +140,7 @@ export function renderPreview(cardType: string, cfg: unknown, dims: PreviewDims)
         return renderWakatime(
           cfg as WakatimeConfig,
           {
-            login: PREVIEW_LOGIN,
+            login: user,
             totalSeconds: 3600 * 42,
             languages: [
               { name: 'TypeScript', seconds: 3600 * 21, percent: 50 },
@@ -149,7 +155,7 @@ export function renderPreview(cardType: string, cfg: unknown, dims: PreviewDims)
         return renderGistCounter(
           cfg as GistCounterConfig,
           {
-            login: PREVIEW_LOGIN,
+            login: user,
             publicGists: 12,
             latestGist: {
               description: 'A quick snippet worth keeping.',
