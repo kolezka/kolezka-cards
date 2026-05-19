@@ -67,15 +67,25 @@ export function createCardsRoute(db: DB, env: Env): Hono<SessionContext> {
     if (dup) return c.json({ error: 'slug_taken' }, 409);
 
     const id = nanoid(12);
-    await db.insert(schema.cards).values({
-      id,
-      userId: user.id,
-      slug: parsed.data.slug,
-      type: parsed.data.config.type,
-      theme: (parsed.data.config as { theme?: string }).theme ?? 'github_dark',
-      configJson: parsed.data.config,
-    });
-    const card = (await db.select().from(schema.cards).where(eq(schema.cards.id, id)).limit(1))[0]!;
+    const inserted = await db
+      .insert(schema.cards)
+      .values({
+        id,
+        userId: user.id,
+        slug: parsed.data.slug,
+        type: parsed.data.config.type,
+        theme: (parsed.data.config as { theme?: string }).theme ?? 'github_dark',
+        configJson: parsed.data.config,
+      })
+      .returning();
+    const card = inserted[0];
+    if (!card) {
+      // RETURNING normally yields exactly one row for a successful single-row
+      // insert; defending against an empty result so the route never returns
+      // a 2xx with no body (which surfaces as "JSON.parse: unexpected end of
+      // data" on the client).
+      return c.json({ error: 'insert_failed' }, 500);
+    }
     return c.json(publicCard(card, user.login), 201);
   });
 

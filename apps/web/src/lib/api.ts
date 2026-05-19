@@ -103,7 +103,23 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T | nul
     throw new ApiError(res.status, code, `${res.status} ${res.statusText}: ${raw}`);
   }
   if (res.status === 204) return null;
-  return (await res.json()) as T;
+  // Parse via text() + JSON.parse so an empty 2xx response surfaces as a
+  // clear ApiError rather than the engine-specific "JSON.parse: unexpected
+  // end of data" that leaks straight to the UI when res.json() is called
+  // on an empty body.
+  const text = await res.text();
+  if (!text) {
+    throw new ApiError(res.status, null, `${res.status} ${res.statusText}: empty response body`);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new ApiError(
+      res.status,
+      null,
+      `${res.status} ${res.statusText}: response was not valid JSON`,
+    );
+  }
 }
 
 export const api = {
