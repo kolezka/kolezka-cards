@@ -310,7 +310,7 @@ export function renderProfileSummary(
     chartGroup = `${chartLabel}${gridLines}${baseLine}${areaPath}${linePath}${xTicks.join('')}`;
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${title}">
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="${title}" text-rendering="geometricPrecision" shape-rendering="geometricPrecision">
   <defs>
     <linearGradient id="ps-fill" x1="0" x2="0" y1="0" y2="1">
       <stop offset="0%" stop-color="#2ea043" stop-opacity="0.7"/>
@@ -327,7 +327,7 @@ export function renderProfileSummary(
       .baseline { stroke: ${tokens.border}; stroke-width: 1; }
       .area { fill: url(#ps-fill); }
       .line { fill: none; stroke: #2ea043; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
-      .ico { fill: none; stroke: ${tokens.muted}; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+      .ico { fill: none; stroke: ${tokens.muted}; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     </style>
   </defs>
   <rect class="bg" x="0.5" y="0.5" rx="10" ry="10" width="${width - 1}" height="${height - 1}" />
