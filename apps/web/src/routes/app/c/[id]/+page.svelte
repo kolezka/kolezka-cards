@@ -3,43 +3,10 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
   import { api, type AnalyticsResult, type CardSummary } from '$lib/api';
+  import CardAnalytics from '$lib/cards/CardAnalytics.svelte';
+  import LivePreview from '$lib/cards/LivePreview.svelte';
   import { THEME_NAMES } from '$lib/theme';
-  import Sparkline from '$lib/Sparkline.svelte';
-  import Heatmap from '$lib/Heatmap.svelte';
-  import { renderCustom, type CustomData } from '@kc/shared/svg/custom';
-  import { renderVisitCounter } from '@kc/shared/svg/visit-counter';
-  import { renderProfileViews } from '@kc/shared/svg/profile-views';
-  import { renderProfileStats } from '@kc/shared/svg/profile-stats';
-  import { renderRepoStats } from '@kc/shared/svg/repo-stats';
-  import { renderStreak } from '@kc/shared/svg/streak';
-  import { renderProfileSummary } from '@kc/shared/svg/profile-summary';
-  import { renderLanguages } from '@kc/shared/svg/languages';
-  import { renderTopRepos } from '@kc/shared/svg/top-repos';
-  import { renderFollowersSparkline } from '@kc/shared/svg/followers-sparkline';
-  import { renderWakatime } from '@kc/shared/svg/wakatime';
-  import { renderGistCounter } from '@kc/shared/svg/gist-counter';
-  import type {
-    CustomConfig,
-    FollowersSparklineConfig,
-    GistCounterConfig,
-    LanguagesConfig,
-    ProfileStatsConfig,
-    ProfileSummaryConfig,
-    ProfileViewsConfig,
-    RepoStatsConfig,
-    StreakConfig,
-    TopReposConfig,
-    VisitCounterConfig,
-    WakatimeConfig,
-  } from '@kc/shared/zod/card-config';
-  import {
-    Glass,
-    GlassButton,
-    GlassInput,
-    GlassSelect,
-    GlassToggle,
-    Stat,
-  } from '$lib/ui';
+  import { Glass, GlassButton, GlassInput, GlassSelect, GlassToggle } from '$lib/ui';
 
   let cardId = $derived(page.params.id ?? '');
   let card = $state<CardSummary | null>(null);
@@ -167,227 +134,6 @@
   onMount(loadAll);
 
   let svgUrl = $derived(card ? `${card.url}?v=${cacheBuster}` : '');
-
-  // Live preview — render every card type client-side from the in-memory
-  // cfg so edits appear immediately, without a save round-trip. Mock data
-  // stays constant so the preview reflects config changes only, not
-  // simulated jitter.
-  const PREVIEW_LOGIN = 'octocat';
-  const MOCK_LANGUAGES = [
-    { name: 'TypeScript', bytes: 320_000 },
-    { name: 'JavaScript', bytes: 180_000 },
-    { name: 'Go', bytes: 95_000 },
-    { name: 'Rust', bytes: 42_000 },
-    { name: 'Python', bytes: 28_000 },
-  ];
-  const MOCK_FOLLOWERS_HISTORY = Array.from({ length: 365 }, (_, i) => {
-    const day = new Date(Date.now() - (364 - i) * 86_400_000).toISOString().slice(0, 10);
-    return { day, followers: 380 + Math.round(Math.sin(i / 12) * 18 + i * 0.12) };
-  });
-  // Deterministic pseudo-noise so re-deriving the preview doesn't shuffle
-  // the contribution chart on every keystroke.
-  const MOCK_CONTRIBUTIONS = Array.from({ length: 365 }, (_, i) => {
-    const date = new Date(Date.now() - (364 - i) * 86_400_000).toISOString().slice(0, 10);
-    const pseudo = (Math.sin(i * 1.7) + Math.cos(i * 0.31)) * 2.5;
-    return { date, count: Math.max(0, Math.round(4 + Math.sin(i / 5) * 4 + pseudo)) };
-  });
-  const MOCK_TOP_REPOS = [
-    {
-      name: 'awesome-thing',
-      description: 'A delightful library that does the thing.',
-      language: 'TypeScript',
-      stars: 1240,
-      forks: 89,
-      updatedAt: new Date().toISOString(),
-    },
-    {
-      name: 'utility-belt',
-      description: 'Small reusable helpers, well documented.',
-      language: 'Go',
-      stars: 320,
-      forks: 22,
-      updatedAt: new Date(Date.now() - 5 * 86_400_000).toISOString(),
-    },
-    {
-      name: 'side-project',
-      description: null,
-      language: 'Rust',
-      stars: 87,
-      forks: 4,
-      updatedAt: new Date(Date.now() - 12 * 86_400_000).toISOString(),
-    },
-    {
-      name: 'docs',
-      description: 'Handbook and architecture notes.',
-      language: 'Markdown',
-      stars: 41,
-      forks: 7,
-      updatedAt: new Date(Date.now() - 30 * 86_400_000).toISOString(),
-    },
-  ];
-  const PREVIEW_CUSTOM_DATA: CustomData = {
-    visits: { total: 1234, unique: 567 },
-    github: {
-      stars: 1687,
-      followers: 421,
-      repos: 32,
-      gists: 5,
-      contributionsYear: 1842,
-      topLanguage: 'TypeScript',
-    },
-    followersHistory: MOCK_FOLLOWERS_HISTORY,
-    contributionsHistory: MOCK_CONTRIBUTIONS,
-    currentFollowers: 421,
-  };
-
-  let livePreviewSvg = $state('');
-  $effect(() => {
-    if (!card) {
-      livePreviewSvg = '';
-      return;
-    }
-    const dims = { width: cfg.size?.width ?? 480, height: cfg.size?.height ?? 300 };
-    try {
-      let svg = '';
-      switch (card.type) {
-        case 'custom':
-          svg = renderCustom(cfg as unknown as CustomConfig, PREVIEW_CUSTOM_DATA, dims);
-          break;
-        case 'visit-counter':
-          svg = renderVisitCounter(
-            cfg as unknown as VisitCounterConfig,
-            { totalImpressions: 1234, uniqueVisits: 567 },
-            dims,
-          );
-          break;
-        case 'profile-views':
-          svg = renderProfileViews(
-            cfg as unknown as ProfileViewsConfig,
-            { views: 1842 },
-            dims,
-          );
-          break;
-        case 'profile-stats':
-          svg = renderProfileStats(
-            cfg as unknown as ProfileStatsConfig,
-            {
-              login: PREVIEW_LOGIN,
-              publicRepos: 32,
-              followers: 421,
-              following: 87,
-              topLanguages: MOCK_LANGUAGES.slice(0, 4),
-            },
-            dims,
-          );
-          break;
-        case 'repo-stats': {
-          const c = cfg as unknown as RepoStatsConfig;
-          const [owner = PREVIEW_LOGIN, name = 'awesome-thing'] = (c.repo ?? '').split('/');
-          svg = renderRepoStats(
-            c,
-            {
-              owner,
-              name,
-              stars: 1240,
-              forks: 89,
-              primaryLanguage: 'TypeScript',
-              languages: MOCK_LANGUAGES.slice(0, 4),
-            },
-            dims,
-          );
-          break;
-        }
-        case 'streak':
-          svg = renderStreak(
-            cfg as unknown as StreakConfig,
-            {
-              login: PREVIEW_LOGIN,
-              totalThisYear: 1842,
-              currentStreak: 17,
-              longestStreak: 64,
-              currentStreakStart: new Date(Date.now() - 16 * 86_400_000)
-                .toISOString()
-                .slice(0, 10),
-              longestStreakStart: '2024-08-01',
-              longestStreakEnd: '2024-10-03',
-            },
-            dims,
-          );
-          break;
-        case 'profile-summary':
-          svg = renderProfileSummary(
-            cfg as unknown as ProfileSummaryConfig,
-            {
-              login: PREVIEW_LOGIN,
-              publicRepos: 32,
-              totalThisYear: 1842,
-              joinedAt: '2014-04-01',
-              contributions: MOCK_CONTRIBUTIONS,
-            },
-            dims,
-          );
-          break;
-        case 'languages':
-          svg = renderLanguages(
-            cfg as unknown as LanguagesConfig,
-            { login: PREVIEW_LOGIN, languages: MOCK_LANGUAGES },
-            dims,
-          );
-          break;
-        case 'top-repos':
-          svg = renderTopRepos(
-            cfg as unknown as TopReposConfig,
-            { login: PREVIEW_LOGIN, repos: MOCK_TOP_REPOS },
-            dims,
-          );
-          break;
-        case 'followers-sparkline':
-          svg = renderFollowersSparkline(
-            cfg as unknown as FollowersSparklineConfig,
-            {
-              login: PREVIEW_LOGIN,
-              currentFollowers: 421,
-              history: MOCK_FOLLOWERS_HISTORY,
-            },
-            dims,
-          );
-          break;
-        case 'wakatime':
-          svg = renderWakatime(
-            cfg as unknown as WakatimeConfig,
-            {
-              login: PREVIEW_LOGIN,
-              totalSeconds: 3600 * 42,
-              languages: [
-                { name: 'TypeScript', seconds: 3600 * 21, percent: 50 },
-                { name: 'Go', seconds: 3600 * 12, percent: 28.6 },
-                { name: 'Rust', seconds: 3600 * 6, percent: 14.3 },
-                { name: 'Python', seconds: 3600 * 3, percent: 7.1 },
-              ],
-            },
-            dims,
-          );
-          break;
-        case 'gist-counter':
-          svg = renderGistCounter(
-            cfg as unknown as GistCounterConfig,
-            {
-              login: PREVIEW_LOGIN,
-              publicGists: 12,
-              latestGist: {
-                description: 'A quick snippet worth keeping.',
-                updatedAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
-              },
-            },
-            dims,
-          );
-          break;
-      }
-      if (svg) livePreviewSvg = svg;
-    } catch {
-      // Keep the last good preview while the user finishes typing.
-    }
-  });
 </script>
 
 {#if err}
@@ -414,27 +160,14 @@
 
   <div class="grid">
     {#if card.type !== 'custom'}
-      <!-- Preview + URL. For custom cards the builder's own canvas IS the
-           live preview — showing two of the same thing is just noise. The
-           URL gets surfaced inside the builder section instead. -->
-      <Glass tier={2} rounded="lg" padding="lg" as="section" class="preview">
-        <h2>Preview</h2>
-        <div class="preview-canvas">
-          {#if livePreviewSvg}
-            <!-- Client-side render of the in-progress cfg with mock data, so
-                 every config change shows up immediately. Falls back to the
-                 server-rendered URL the first render before the effect has
-                 run, or if the renderer throws on an in-progress invalid
-                 cfg. -->
-            {@html livePreviewSvg}
-          {:else}
-            <img src={svgUrl} alt="Card preview" />
-          {/if}
-        </div>
-        <p class="muted preview-url">
-          Live URL: <code>{card.url}</code>
-        </p>
-      </Glass>
+      <!-- For custom cards the builder's own canvas IS the live preview —
+           showing two of the same thing is just noise. -->
+      <LivePreview
+        cardType={card.type}
+        cardUrl={card.url}
+        cfg={cfg as never}
+        fallbackImgUrl={svgUrl}
+      />
     {/if}
 
     <!-- Config panel -->
@@ -664,111 +397,14 @@
     </Glass>
   </div>
 
-  <!-- Analytics -->
-  <section class="analytics-section">
-    <header class="analytics-head">
-      <h2>Analytics</h2>
-      <div class="rangebar" role="tablist" aria-label="Time range">
-        {#each ['24h', '7d', '30d', 'all'] as const as r (r)}
-          <button
-            role="tab"
-            aria-selected={range === r}
-            type="button"
-            class="range-pill"
-            class:active={range === r}
-            onclick={() => {
-              range = r;
-              loadAnalytics();
-            }}
-          >
-            {r}
-          </button>
-        {/each}
-      </div>
-    </header>
-
-    {#if analytics}
-      <div class="tiles">
-        <Glass tier={2} rounded="md" padding="md">
-          <Stat label="Impressions ({range})" value={analytics.totals.totalImpressions} accent />
-        </Glass>
-        <Glass tier={2} rounded="md" padding="md">
-          <Stat
-            label="Unique direct viewers ({range})"
-            value={analytics.totals.uniqueVisits}
-            accent
-          />
-        </Glass>
-      </div>
-
-      {#if analytics.totals.directImpressions + analytics.totals.camoImpressions > 0}
-        <div class="traffic-source" title="Camo-proxied impressions cannot be deduped per viewer; only direct (non-proxied) impressions contribute to the unique counter.">
-          <span class="pill pill-direct">
-            <strong>{analytics.totals.directImpressions}</strong> direct
-          </span>
-          <span class="pill pill-camo">
-            <strong>{analytics.totals.camoImpressions}</strong> via GitHub Camo
-          </span>
-          {#if analytics.totals.totalImpressions - analytics.totals.directImpressions - analytics.totals.camoImpressions > 0}
-            <span class="pill pill-legacy">
-              <strong>
-                {analytics.totals.totalImpressions -
-                  analytics.totals.directImpressions -
-                  analytics.totals.camoImpressions}
-              </strong>
-              unclassified (pre-upgrade)
-            </span>
-          {/if}
-        </div>
-      {/if}
-
-      <Glass tier={1} rounded="md" padding="md" class="chart-block">
-        <Sparkline series={analytics.series} />
-      </Glass>
-
-      <h3 class="sub-h3">Visits by hour of week (UTC)</h3>
-      <Glass tier={1} rounded="md" padding="md" class="chart-block">
-        <Heatmap grid={analytics.heatmap} />
-      </Glass>
-
-      <div class="breakdowns">
-        <Glass tier={2} rounded="md" padding="md">
-          <h3>Top referrers</h3>
-          {#if analytics.referrers.length === 0}
-            <p class="muted">None.</p>
-          {:else}
-            <ul>
-              {#each analytics.referrers.slice(0, 8) as r (r.host)}
-                <li>
-                  <span>{r.host ?? '(none)'}</span>
-                  <strong>{r.count}</strong>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </Glass>
-        <Glass tier={2} rounded="md" padding="md">
-          <h3>Countries</h3>
-          {#if analytics.countries.length === 0}
-            <p class="muted">None.</p>
-          {:else}
-            <ul>
-              {#each analytics.countries.slice(0, 8) as r (r.country)}
-                <li>
-                  <span>{r.country ?? '(none)'}</span>
-                  <strong>{r.count}</strong>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </Glass>
-      </div>
-
-      <p class="muted methodology-link">
-        Approximate unique visits — see <a href="/methodology">methodology</a>.
-      </p>
-    {/if}
-  </section>
+  <CardAnalytics
+    {analytics}
+    {range}
+    onRangeChange={(next) => {
+      range = next;
+      loadAnalytics();
+    }}
+  />
 {/if}
 
 <style>
@@ -827,8 +463,7 @@
     flex-direction: column;
     gap: 16px;
   }
-  :global(.builder) h2,
-  :global(.preview) h2 {
+  :global(.builder) h2 {
     margin: 0;
     font-size: 18px;
     letter-spacing: -0.01em;
@@ -866,31 +501,6 @@
     gap: 10px;
     margin-top: 4px;
   }
-
-  :global(.preview) {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-  }
-  .preview-canvas {
-    padding: 16px;
-    background:
-      linear-gradient(45deg, var(--glass-1) 25%, transparent 25%),
-      linear-gradient(-45deg, var(--glass-1) 25%, transparent 25%),
-      linear-gradient(45deg, transparent 75%, var(--glass-1) 75%),
-      linear-gradient(-45deg, transparent 75%, var(--glass-1) 75%);
-    background-size: 16px 16px;
-    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
-    border-radius: var(--radius-md);
-    border: 1px solid var(--ring-soft);
-  }
-  .preview-canvas img,
-  .preview-canvas :global(svg) {
-    width: 100%;
-    height: auto;
-    display: block;
-    border-radius: var(--radius-sm);
-  }
   .preview-url {
     margin: 0;
     font-size: 12px;
@@ -904,139 +514,7 @@
     font-family: var(--font-mono);
     color: var(--text-2);
   }
-
-  .analytics-section {
-    margin-top: 24px;
-  }
-  .analytics-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 18px;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .analytics-head h2 {
-    margin: 0;
-    font-size: 22px;
-    letter-spacing: -0.01em;
-  }
-  .rangebar {
-    display: inline-flex;
-    padding: 4px;
-    background: var(--glass-2);
-    border: 1px solid var(--ring-soft);
-    border-radius: var(--radius-pill);
-    box-shadow: var(--highlight);
-    backdrop-filter: blur(var(--blur-sm));
-    -webkit-backdrop-filter: blur(var(--blur-sm));
-  }
-  .range-pill {
-    background: transparent;
-    color: var(--text-3);
-    border: 0;
-    border-radius: var(--radius-pill);
-    padding: 6px 14px;
-    cursor: pointer;
-    font: 600 13px var(--font-sans);
-    transition: background var(--dur-fast) var(--ease-glass),
-      color var(--dur-fast) var(--ease-glass);
-  }
-  .range-pill:hover {
-    color: var(--text-1);
-  }
-  .range-pill.active {
-    background: var(--glass-4);
-    color: var(--text-1);
-    box-shadow: var(--highlight);
-  }
-
-  .tiles {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 14px;
-    margin-bottom: 18px;
-  }
-  .traffic-source {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin: -6px 0 18px;
-    font-size: 12px;
-    cursor: help;
-  }
-  .traffic-source .pill {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--ring-soft);
-    background: var(--glass-2);
-    color: var(--text-2);
-  }
-  .traffic-source .pill strong {
-    color: var(--text-1);
-    font-variant-numeric: tabular-nums;
-  }
-  .traffic-source .pill-direct {
-    border-color: color-mix(in oklch, var(--accent) 40%, var(--ring-soft));
-  }
-  .traffic-source .pill-camo {
-    border-color: color-mix(in oklch, var(--text-3) 40%, var(--ring-soft));
-  }
-  .traffic-source .pill-legacy {
-    opacity: 0.7;
-  }
-  :global(.chart-block) {
-    margin-bottom: 18px;
-  }
-  .sub-h3 {
-    font-size: 13px;
-    color: var(--text-3);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin: 16px 0 10px;
-    font-weight: 700;
-  }
-  .breakdowns {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-  }
-  @media (max-width: 720px) {
-    .breakdowns {
-      grid-template-columns: 1fr;
-    }
-  }
-  .breakdowns h3 {
-    margin: 0 0 10px;
-    font-size: 14px;
-  }
-  .breakdowns ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-  .breakdowns li {
-    display: flex;
-    justify-content: space-between;
-    padding: 6px 0;
-    border-bottom: 1px solid var(--ring-soft);
-    font-size: 13px;
-  }
-  .breakdowns li:last-child {
-    border-bottom: 0;
-  }
   .muted {
     color: var(--text-3);
-  }
-  .methodology-link {
-    margin-top: 16px;
-    font-size: 12.5px;
-  }
-  .methodology-link a {
-    color: var(--accent);
-    text-decoration: none;
   }
 </style>
