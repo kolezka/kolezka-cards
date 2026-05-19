@@ -86,4 +86,46 @@ describe('GitHubClient', () => {
     const langs = await client.getRepoLanguages('octocat', 'hello');
     expect(langs?.TypeScript).toBe(8000);
   });
+
+  it('annotates rate-limited 403s and tells operator to set a token', async () => {
+    const fetcher = mock(
+      async () =>
+        new Response(JSON.stringify({ message: 'API rate limit exceeded' }), {
+          status: 403,
+          headers: {
+            'x-ratelimit-limit': '60',
+            'x-ratelimit-remaining': '0',
+            'x-ratelimit-reset': '4000000000',
+          },
+        }),
+    );
+    const client = createGitHubClient({ ttlMs: 60_000, fetcher: fetcher as never });
+    let caught: Error | null = null;
+    try {
+      await client.getUser('octocat');
+    } catch (e) {
+      caught = e as Error;
+    }
+    expect(caught).not.toBeNull();
+    expect(caught?.message).toContain('returned 403');
+    expect(caught?.message).toContain('rate limit 60/hr exhausted');
+    expect(caught?.message).toContain('GITHUB_TOKEN');
+  });
+
+  it('briefly caches errors so a burst does not retry-storm GitHub', async () => {
+    const fetcher = mock(async () => new Response('{}', { status: 503 }));
+    const client = createGitHubClient({ ttlMs: 60_000, fetcher: fetcher as never });
+    // Sequential bursts within the error TTL window: only the first
+    // should hit GitHub, the rest replay the cached error. (The cards-list
+    // page fetches each card's SVG one after the other, not in parallel,
+    // so this is the realistic pattern.)
+    for (let i = 0; i < 3; i += 1) {
+      try {
+        await client.getUser('octocat');
+      } catch {
+        /* expected */
+      }
+    }
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
 });

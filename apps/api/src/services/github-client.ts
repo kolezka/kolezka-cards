@@ -37,9 +37,17 @@ export interface GitHubClientOptions {
 }
 
 const DEFAULT_TTL_MS = 6 * 60 * 60 * 1000;
+// Brief cache for non-OK / non-404 responses (403 rate-limited, 5xx). Without
+// this, a cards-list page render that hits a rate-limited API would retry
+// every dependent card on every page view, prolonging the outage and burning
+// any remaining quota. One minute is long enough to absorb a burst of
+// concurrent requests but short enough that a fixed config (token added,
+// transient 5xx resolved) recovers quickly.
+const ERROR_TTL_MS = 60 * 1000;
 
 interface CacheEntry<T> {
-  value: T | null;
+  value?: T | null;
+  error?: Error;
   expiresAt: number;
 }
 
@@ -54,6 +62,7 @@ export function createGitHubClient(opts: GitHubClientOptions = {}): GitHubClient
     const cached = cache.get(url);
     const now = Date.now();
     if (cached && cached.expiresAt > now) {
+      if (cached.error) throw cached.error;
       return cached.value as T | null;
     }
     const headers: Record<string, string> = {
@@ -62,17 +71,34 @@ export function createGitHubClient(opts: GitHubClientOptions = {}): GitHubClient
     };
     if (token) headers.Authorization = `Bearer ${token}`;
     const res = await fetcher(url, { headers });
-    let value: T | null = null;
     if (res.ok) {
-      value = (await res.json()) as T;
-    } else if (res.status === 404) {
-      value = null;
-    } else {
-      // Don't cache transient errors (5xx, 403 rate-limited)
-      throw new Error(`github ${url} returned ${res.status}`);
+      const value = (await res.json()) as T;
+      cache.set(url, { value, expiresAt: now + ttl });
+      return value;
     }
-    cache.set(url, { value, expiresAt: now + ttl });
-    return value;
+    if (res.status === 404) {
+      cache.set(url, { value: null, expiresAt: now + ttl });
+      return null;
+    }
+    // Surface GitHub's rate-limit headers in the error message so logs
+    // make it obvious whether the 403 is "60/hr quota exhausted" or a
+    // token / scope problem.
+    const remaining = res.headers.get('x-ratelimit-remaining');
+    const reset = res.headers.get('x-ratelimit-reset');
+    const limit = res.headers.get('x-ratelimit-limit');
+    let detail = '';
+    if (remaining === '0') {
+      const resetIso = reset ? new Date(Number(reset) * 1000).toISOString() : 'unknown';
+      const tokenAdvice = token
+        ? 'token quota exhausted'
+        : 'no token set — set GITHUB_TOKEN to raise the limit from 60/hr to 5000/hr';
+      detail = ` (rate limit ${limit ?? '?'}/hr exhausted, resets at ${resetIso}; ${tokenAdvice})`;
+    } else if (res.status === 401) {
+      detail = ' (auth rejected — GITHUB_TOKEN missing, expired, or insufficient scope)';
+    }
+    const err = new Error(`github ${url} returned ${res.status}${detail}`);
+    cache.set(url, { error: err, expiresAt: now + ERROR_TTL_MS });
+    throw err;
   }
 
   return {
