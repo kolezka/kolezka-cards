@@ -33,7 +33,7 @@ import {
   PREVIEW_LOGIN,
 } from './preview-mock-data';
 
-export type PreviewDims = { width?: number; height?: number };
+export type PreviewDims = { width?: number; height?: number; maxWidth?: number };
 
 export interface PreviewStats {
   login?: string;
@@ -43,6 +43,26 @@ export interface PreviewStats {
   following?: number;
   joinedAt?: string | null;
 }
+
+// Each card's natural width. Mirrors the DEFAULT_WIDTH constants in
+// packages/shared/src/svg/*.ts. Used by the preview to detect when the
+// natural size would exceed the preview pane and force the renderer to
+// produce an SVG at the displayed size instead — CSS-downscaling inline
+// SVG sub-pixels the text glyphs and softens the result on HiDPI screens.
+const NATURAL_WIDTHS: Record<string, number> = {
+  'visit-counter': 480,
+  'profile-views': 220,
+  'profile-stats': 480,
+  'repo-stats': 480,
+  streak: 480,
+  'profile-summary': 1080,
+  languages: 480,
+  'top-repos': 480,
+  'gist-counter': 480,
+  wakatime: 480,
+  'followers-sparkline': 480,
+  custom: 480,
+};
 
 /**
  * Render any card type client-side from the in-memory cfg with mock data.
@@ -59,7 +79,7 @@ export interface PreviewStats {
 export function renderPreview(
   cardType: string,
   cfg: unknown,
-  dims: PreviewDims,
+  inputDims: PreviewDims,
   stats?: PreviewStats,
 ): string {
   const user = stats?.login && stats.login.length > 0 ? stats.login : PREVIEW_LOGIN;
@@ -68,6 +88,17 @@ export function renderPreview(
   const followers = stats?.followers ?? 421;
   const following = stats?.following ?? 87;
   const joinedAt = stats?.joinedAt ?? '2014-04-01';
+  // Resolve the rendering width:
+  //   - explicit cfg.size.width (user override) wins
+  //   - otherwise, if the card's natural width exceeds the live preview
+  //     pane, render at the pane's width so there's no CSS scaling
+  //   - otherwise, undefined → renderer uses its own DEFAULT_WIDTH
+  let effectiveWidth = inputDims.width;
+  if (effectiveWidth === undefined && inputDims.maxWidth) {
+    const natural = NATURAL_WIDTHS[cardType] ?? 480;
+    if (natural > inputDims.maxWidth) effectiveWidth = inputDims.maxWidth;
+  }
+  const dims = { width: effectiveWidth, height: inputDims.height };
   try {
     switch (cardType) {
       case 'custom':

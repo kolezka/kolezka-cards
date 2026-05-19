@@ -16,6 +16,29 @@
   // retention: keep the previous SVG visible while the user finishes
   // typing (renderPreview returns '' on a throw).
   let svg = $state('');
+  // Inner width of the preview canvas. When the card's natural width
+  // exceeds this, we pass it through to renderPreview as `maxWidth` so
+  // the renderer produces an SVG at the displayed size — avoiding a
+  // CSS downscale that sub-pixels SVG glyphs and softens the text
+  // (especially profile-summary, whose 1080-wide default doesn't fit
+  // the ~964-px pane and was rendering visibly blurry).
+  let canvasEl = $state<HTMLDivElement | null>(null);
+  let canvasInnerWidth = $state(0);
+  $effect(() => {
+    if (!canvasEl) return;
+    const el = canvasEl;
+    const measure = () => {
+      const cs = getComputedStyle(el);
+      const padL = parseFloat(cs.paddingLeft) || 0;
+      const padR = parseFloat(cs.paddingRight) || 0;
+      const w = Math.floor(el.clientWidth - padL - padR);
+      if (w > 0) canvasInnerWidth = w;
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
   $effect(() => {
     // Pass dims only when the user explicitly set them. Otherwise each
     // renderer uses its own natural default (profile-summary is 1080×320
@@ -24,6 +47,7 @@
     const dims = {
       width: cfg.size?.width,
       height: cfg.size?.height,
+      maxWidth: canvasInnerWidth || undefined,
     };
     const next = renderPreview(cardType, cfg, dims, stats);
     if (next) svg = next;
@@ -32,7 +56,7 @@
 
 <Glass tier={2} rounded="lg" padding="lg" as="section" class="preview">
   <h2>Preview</h2>
-  <div class="preview-canvas">
+  <div class="preview-canvas" bind:this={canvasEl}>
     {#if svg}
       <!-- Client-side render of the in-progress cfg with mock data, so
            every config change shows up immediately. Falls back to the
