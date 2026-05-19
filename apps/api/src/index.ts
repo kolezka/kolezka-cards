@@ -1,6 +1,7 @@
 import { getClient, runStartupMigrations } from '@kc/db';
 import { oauthConfigured, resolveDatabaseUrl } from '@kc/shared/env';
 import { Hono } from 'hono';
+import { createRenderCardRoute } from './cards/route';
 import { env } from './env';
 import { hashForLog, logger } from './logger';
 import { csrfGuard } from './middleware/csrf';
@@ -16,7 +17,6 @@ import { createDevAnalyticsRoute } from './routes/dev-analytics';
 import { healthz } from './routes/healthz';
 import { createMeRoute } from './routes/me';
 import { metrics as metricsRoute } from './routes/metrics';
-import { createRenderCardRoute } from './routes/render-card';
 import { bumpCounter } from './services/metrics';
 
 const databaseUrl = resolveDatabaseUrl(env);
