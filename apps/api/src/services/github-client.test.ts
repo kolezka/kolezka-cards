@@ -116,9 +116,7 @@ describe('GitHubClient', () => {
     const fetcher = mock(async () => new Response('{}', { status: 503 }));
     const client = createGitHubClient({ ttlMs: 60_000, fetcher: fetcher as never });
     // Sequential bursts within the error TTL window: only the first
-    // should hit GitHub, the rest replay the cached error. (The cards-list
-    // page fetches each card's SVG one after the other, not in parallel,
-    // so this is the realistic pattern.)
+    // should hit GitHub, the rest replay the cached error.
     for (let i = 0; i < 3; i += 1) {
       try {
         await client.getUser('octocat');
@@ -126,6 +124,33 @@ describe('GitHubClient', () => {
         /* expected */
       }
     }
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('dedupes concurrent in-flight requests to the same URL', async () => {
+    // Slow fetcher so all three calls are mid-flight at once.
+    const pending: Array<(v: Response) => void> = [];
+    const fetcher = mock(
+      () =>
+        new Promise<Response>((resolve) => {
+          pending.push(resolve);
+        }),
+    );
+    const client = createGitHubClient({ ttlMs: 60_000, fetcher: fetcher as never });
+    const promises = [
+      client.getUser('octocat'),
+      client.getUser('octocat'),
+      client.getUser('octocat'),
+    ];
+    // Resolve the in-flight fetch once the three calls have queued up.
+    await new Promise((r) => setTimeout(r, 5));
+    const resolve = pending[0];
+    if (resolve) resolve(new Response(JSON.stringify(userFixture), { status: 200 }));
+    const [a, b, c] = await Promise.all(promises);
+    expect(a?.login).toBe('octocat');
+    expect(b?.login).toBe('octocat');
+    expect(c?.login).toBe('octocat');
+    // Three concurrent callers, one HTTP request.
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });

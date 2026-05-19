@@ -57,6 +57,13 @@ export function createGitHubClient(opts: GitHubClientOptions = {}): GitHubClient
   const baseUrl = opts.baseUrl ?? 'https://api.github.com';
   const token = opts.token;
   const cache = new Map<string, CacheEntry<unknown>>();
+  // In-flight dedup: when several handlers concurrently ask for the same
+  // URL (typical for the cards-list page — multiple cards all calling
+  // getUser(ownerLogin) for the same user in the same tick), the first
+  // caller's promise is shared with the others so we issue one HTTP
+  // request, not N. The error cache only dedupes sequential repeats —
+  // this covers the concurrent burst case.
+  const pending = new Map<string, Promise<unknown>>();
 
   async function getJson<T>(url: string): Promise<T | null> {
     const cached = cache.get(url);
@@ -65,40 +72,51 @@ export function createGitHubClient(opts: GitHubClientOptions = {}): GitHubClient
       if (cached.error) throw cached.error;
       return cached.value as T | null;
     }
-    const headers: Record<string, string> = {
-      Accept: 'application/vnd.github+json',
-      'User-Agent': 'kolezka-cards',
-    };
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const res = await fetcher(url, { headers });
-    if (res.ok) {
-      const value = (await res.json()) as T;
-      cache.set(url, { value, expiresAt: now + ttl });
-      return value;
+    const inflight = pending.get(url);
+    if (inflight) return inflight as Promise<T | null>;
+
+    const promise = (async (): Promise<T | null> => {
+      const headers: Record<string, string> = {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'kolezka-cards',
+      };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetcher(url, { headers });
+      if (res.ok) {
+        const value = (await res.json()) as T;
+        cache.set(url, { value, expiresAt: now + ttl });
+        return value;
+      }
+      if (res.status === 404) {
+        cache.set(url, { value: null, expiresAt: now + ttl });
+        return null;
+      }
+      // Surface GitHub's rate-limit headers in the error message so logs
+      // make it obvious whether the 403 is "60/hr quota exhausted" or a
+      // token / scope problem.
+      const remaining = res.headers.get('x-ratelimit-remaining');
+      const reset = res.headers.get('x-ratelimit-reset');
+      const limit = res.headers.get('x-ratelimit-limit');
+      let detail = '';
+      if (remaining === '0') {
+        const resetIso = reset ? new Date(Number(reset) * 1000).toISOString() : 'unknown';
+        const tokenAdvice = token
+          ? 'token quota exhausted'
+          : 'no token set — set GITHUB_TOKEN to raise the limit from 60/hr to 5000/hr';
+        detail = ` (rate limit ${limit ?? '?'}/hr exhausted, resets at ${resetIso}; ${tokenAdvice})`;
+      } else if (res.status === 401) {
+        detail = ' (auth rejected — GITHUB_TOKEN missing, expired, or insufficient scope)';
+      }
+      const err = new Error(`github ${url} returned ${res.status}${detail}`);
+      cache.set(url, { error: err, expiresAt: now + ERROR_TTL_MS });
+      throw err;
+    })();
+    pending.set(url, promise);
+    try {
+      return await promise;
+    } finally {
+      pending.delete(url);
     }
-    if (res.status === 404) {
-      cache.set(url, { value: null, expiresAt: now + ttl });
-      return null;
-    }
-    // Surface GitHub's rate-limit headers in the error message so logs
-    // make it obvious whether the 403 is "60/hr quota exhausted" or a
-    // token / scope problem.
-    const remaining = res.headers.get('x-ratelimit-remaining');
-    const reset = res.headers.get('x-ratelimit-reset');
-    const limit = res.headers.get('x-ratelimit-limit');
-    let detail = '';
-    if (remaining === '0') {
-      const resetIso = reset ? new Date(Number(reset) * 1000).toISOString() : 'unknown';
-      const tokenAdvice = token
-        ? 'token quota exhausted'
-        : 'no token set — set GITHUB_TOKEN to raise the limit from 60/hr to 5000/hr';
-      detail = ` (rate limit ${limit ?? '?'}/hr exhausted, resets at ${resetIso}; ${tokenAdvice})`;
-    } else if (res.status === 401) {
-      detail = ' (auth rejected — GITHUB_TOKEN missing, expired, or insufficient scope)';
-    }
-    const err = new Error(`github ${url} returned ${res.status}${detail}`);
-    cache.set(url, { error: err, expiresAt: now + ERROR_TTL_MS });
-    throw err;
   }
 
   return {
