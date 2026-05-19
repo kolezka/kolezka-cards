@@ -124,6 +124,18 @@ export function createBuilderState(
     });
   }
 
+  // Keyboard nudge: apply a delta in pixels, clamped to the canvas. Snaps
+  // to keep the block aligned with the 8px grid even if the previous value
+  // was off-grid for any reason (e.g. an old import).
+  function nudgeBlock(id: string, dx: number, dy: number) {
+    const b = getCfg().blocks.find((x) => x.id === id);
+    if (!b) return;
+    const x = clamp(snap(b.x + dx), 0, Math.max(0, canvasW() - b.w));
+    const y = clamp(snap(b.y + dy), 0, Math.max(0, canvasH() - b.h));
+    if (x === b.x && y === b.y) return;
+    updateBlock(id, { x, y } as Partial<Block>);
+  }
+
   function resizeCanvas(width: number, height: number) {
     const w = clamp(snap(width), 200, 1200);
     const h = clamp(snap(height), 80, 600);
@@ -190,6 +202,7 @@ export function createBuilderState(
     bringToFront,
     sendToBack,
     updateBlock,
+    nudgeBlock,
     resizeCanvas,
     openMenu,
     closeMenu,

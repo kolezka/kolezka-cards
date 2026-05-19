@@ -29,6 +29,7 @@
     </p>
     <p class="help-line">Drag blocks to move (snaps to 8px).</p>
     <ul class="kbd-list">
+      <li><kbd>←↑→↓</kbd> <span>nudge 8px (Shift = 80px)</span></li>
       <li><kbd>Del</kbd> <span>remove selected</span></li>
       <li><kbd>⌘D</kbd> <span>duplicate selected</span></li>
       <li><kbd>Esc</kbd> <span>deselect</span></li>

@@ -53,7 +53,22 @@
     if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
       e.preventDefault();
       builder.duplicateBlock(builder.selectedId);
+      return;
     }
+    // Arrow-key nudge: one grid step (8px), or 10 steps (80px) with Shift
+    // for fast positioning. Ignored while modifier keys for browser shortcuts
+    // are held so we don't hijack Ctrl/Cmd+Arrow.
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    let dx = 0;
+    let dy = 0;
+    if (e.key === 'ArrowLeft') dx = -1;
+    else if (e.key === 'ArrowRight') dx = 1;
+    else if (e.key === 'ArrowUp') dy = -1;
+    else if (e.key === 'ArrowDown') dy = 1;
+    if (dx === 0 && dy === 0) return;
+    e.preventDefault();
+    const step = e.shiftKey ? 80 : 8;
+    builder.nudgeBlock(builder.selectedId, dx * step, dy * step);
   }
 
   $effect(() => {
