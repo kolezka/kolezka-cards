@@ -11,6 +11,7 @@ import { type GitHubClient, createGitHubClient } from '../services/github-client
 import { bumpCounter } from '../services/metrics';
 import { getVisitTotals, trackVisit } from '../services/visit-tracker';
 import { HANDLERS } from './dispatch';
+import { renderFallback } from './fallback';
 import { HandlerError } from './handler-types';
 
 function extractReferrerHost(referer: string | undefined): string | null {
@@ -142,6 +143,7 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
         });
 
     let svg: string;
+    let isFallback = false;
     try {
       const handler = HANDLERS[config.type];
       svg = await handler({
@@ -157,8 +159,15 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
       if (err instanceof HandlerError) {
         return c.text(err.message, err.status);
       }
+      // GitHub REST API rate-limited / 5xx etc. Serve a themed placeholder
+      // at the configured size instead of 502 — a broken <img> on the user's
+      // README is a worse outcome than a card that says "GitHub data
+      // temporarily unavailable", and the github-client's 60 s error cache
+      // keeps us from hammering the API while it recovers.
       logger.warn({ err, cardId: card.id }, 'render fallback (github fetch failed)');
-      return c.text('Upstream fetch failed', 502);
+      svg = renderFallback(config as Parameters<typeof renderFallback>[0], config.type);
+      isFallback = true;
+      bumpCounter('render.fallback', 1, { type: config.type });
     }
 
     logger.info(
@@ -170,6 +179,7 @@ export function createRenderCardRoute(db: DB, github: GitHubClient = createGitHu
         country: headers['cf-ipcountry'] ?? null,
         latencyMs: Date.now() - start,
         uaHash: hashForLog(headers['user-agent']),
+        fallback: isFallback,
       },
       'render',
     );
