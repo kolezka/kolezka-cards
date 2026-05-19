@@ -8,7 +8,7 @@
 <h1 align="center">kolezka-cards</h1>
 
 <p align="center">
-  Dynamic SVG cards for GitHub READMEs — <strong>11 card types</strong>, privacy-preserving per-card analytics, Apple liquid-glass dashboard, self-hosted in a single container.
+  Dynamic SVG cards for GitHub READMEs — <strong>12 card types</strong>, privacy-preserving per-card analytics, Apple liquid-glass dashboard, self-hosted in a docker-compose stack.
   <br />
   <a href="https://ghcards.raqz.link"><strong>Live site →</strong></a>
   &nbsp;·&nbsp;
@@ -21,7 +21,7 @@
   <img alt="Bun" src="https://img.shields.io/badge/bun-1.x-fbf0df?logo=bun&logoColor=000" />
   <img alt="SvelteKit" src="https://img.shields.io/badge/SvelteKit-Svelte%205-ff3e00?logo=svelte&logoColor=fff" />
   <img alt="Hono" src="https://img.shields.io/badge/Hono-API-e36002?logo=hono&logoColor=fff" />
-  <img alt="SQLite" src="https://img.shields.io/badge/bun:sqlite-WAL-003b57?logo=sqlite&logoColor=fff" />
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=fff" />
   <img alt="Drizzle" src="https://img.shields.io/badge/Drizzle-ORM-c5f74f" />
   <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-✓-7c3aed" />
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue" />
@@ -54,6 +54,7 @@ Sign in with GitHub, configure size / theme / period / per-type options in the d
 | `gist-counter` | Public gist count + most recent gist | `show.count`, `show.latest` |
 | `wakatime` | Last 7d / 30d / 6mo / year coding time by language | `apiKey`, `range`, `limit` |
 | `followers-sparkline` | Followers-over-time trend + delta | `period` (`30d`/`90d`/`365d`/`all`) |
+| `custom` | Free-form drag-and-drop layout: text · stat · badge · sparkline · image · divider blocks | Built in the dashboard's visual editor |
 
 Every card additionally accepts:
 
@@ -81,14 +82,13 @@ Append on the SVG URL for one-off variations (handy in matrix tables or per-sect
 
 ## Privacy & analytics
 
-The full story is at [`/privacy`](https://ghcards.raqz.link/privacy) and [`/methodology`](https://ghcards.raqz.link/methodology). Short version:
+The user-facing summary is at [`/privacy`](https://ghcards.raqz.link/privacy) and the technical breakdown of unique-visit counting is at [`/methodology`](https://ghcards.raqz.link/methodology). Short version:
 
-- **Per-day fingerprint**: `sha256(User-Agent | Accept-Language | Accept-Encoding | daily_salt)` where the salt rotates at 00:00 UTC. One-way; no cross-day correlation.
+- **Per-day fingerprint**: `sha256(User-Agent | Accept-Language | Accept-Encoding | Sec-CH-UA* | country | ip_prefix | daily_salt)` where the salt rotates at 00:00 UTC. One-way; no cross-day correlation. The IP prefix (IPv4 /24, IPv6 /64) is mixed into the hash and never persisted.
 - **12h dedup window** per (card, fingerprint) for unique-visit counting.
-- **What's stored**: country code (from `CF-IPCountry`), referrer host, UA family bucket, hourly impression aggregates.
+- **What's stored**: country code (from `CF-IPCountry`), referrer host, UA family bucket, hourly impression aggregates split into `direct_impressions` / `camo_impressions`.
 - **What's never stored**: raw IPs, full UA strings, cookies on the SVG endpoint, cross-day identifiers, third-party trackers.
-- **Self-traffic excluded**: renders whose `Referer` matches `BASE_URL` (the owner previewing in the dashboard, the demo on the landing page) bump a separate `render.self_traffic` counter and don't inflate the public metrics.
-- GDPR-compliant policy with named data controller, retention details, sub-processor list, and exercise-your-rights workflow.
+- **Self-traffic excluded**: renders whose `Referer` matches `BASE_URL` (owner previews, the landing demo) bump a separate `render.self_traffic` counter and don't inflate the public metrics.
 
 ## Stack
 
@@ -97,40 +97,47 @@ The full story is at [`/privacy`](https://ghcards.raqz.link/privacy) and [`/meth
 | Runtime | **Bun** (latest stable) |
 | API | **Hono** |
 | Frontend | **SvelteKit** with Svelte 5 runes, `adapter-static`, Apple liquid-glass design system (`apps/web/src/lib/styles/tokens.css`) |
-| Database | **SQLite** via `bun:sqlite`, WAL, `busy_timeout=5000` |
+| Database | **PostgreSQL 16** via `postgres-js`; bundled custom image (`docker/postgres.Dockerfile`) bakes in the user/db so only the password ever needs to be configured |
 | Migrations | **Drizzle ORM** + drizzle-kit, applied inline at API startup |
 | Auth | **Arctic** (GitHub OAuth) + custom session table |
 | Validation | **Zod** at every boundary |
 | Lint / format | **Biome** (Svelte files handled by `svelte-check`) |
-| Pre-commit | **lefthook** (typecheck + biome + svelte-check + tests, ~5s) |
-| Deploy | Single multi-stage `Dockerfile`, one port |
+| Pre-commit | **lefthook** (typecheck + biome + svelte-check + tests, ~20s) |
+| Deploy | Two-service `docker-compose.yml` (`app` + `postgres`), one externally-exposed port |
 | CI | GitHub Actions: tests + typecheck + lint + Docker smoke + Drizzle schema/migration sync check |
 
 ## Quickstart
+
+The dev stack runs Postgres in Docker and the API + web from your shell.
 
 ```sh
 # 1. Install
 bun install
 
-# 2. Env
+# 2. Bring up the dev Postgres
+docker compose -f docker-compose.dev.yml up -d
+
+# 3. Env
 cp .env.example .env
 # Fill APP_SECRET (`openssl rand -hex 32`), set BASE_URL=http://localhost:5173,
-# DATABASE_PATH to an absolute path.
+# and POSTGRES_PASSWORD (matching the docker-compose.dev.yml value).
 
-# 3. Migrate + seed sample cards
-DATABASE_PATH=$PWD/data/app.db bun --filter @kc/db db:migrate
-DATABASE_PATH=$PWD/data/app.db bun --filter @kc/db db:seed
+# 4. Migrate + seed sample cards
+bun --filter @kc/db db:migrate
+bun --filter @kc/db db:seed
 
-# 4. Run API (:3001) + web (:5173) in parallel
+# 5. Run API (:3001) + web (:5173) in parallel
 bun run dev
 
-# 5. Hit sample cards
+# 6. Hit sample cards
 curl -i 'http://localhost:3001/c/testuser/counter.svg'
 curl -i 'http://localhost:3001/c/octocat/profile.svg'
 
-# 6. Open the dashboard
+# 7. Open the dashboard
 open http://localhost:5173/
 ```
+
+For production, `docker-compose.yml` starts both services; set `APP_SECRET`, `BASE_URL`, `POSTGRES_PASSWORD`, and (optionally) `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` / `ADMIN_LOGINS` in the environment.
 
 ### Useful scripts
 
@@ -138,7 +145,7 @@ open http://localhost:5173/
 bun run typecheck       # tsc --noEmit across all workspaces
 bun run lint            # biome check .
 bun run lint:fix        # biome check --write .
-bun run test            # bun:test — 220+ tests
+bun run test            # bun:test — 286 tests across 30 files
 bun run db:generate     # generate a new Drizzle migration from schema.ts
 bun run db:check        # verify migration snapshots are internally consistent
 bun run db:migrate      # apply migrations standalone (also runs inline at API startup)
@@ -154,12 +161,16 @@ See `.env.example` for the full annotated list.
 | --- | --- | --- |
 | `APP_SECRET` | ✓ | 32+ bytes hex. HMAC key for the daily fingerprint salt and session ids. |
 | `BASE_URL` | ✓ | Public origin. Used for OAuth callback, CSRF Origin check, and self-traffic exclusion. |
-| `DATABASE_PATH` | ✓ | Absolute path to the SQLite file. Coolify: `/data/app.db` on a mounted volume. |
+| `POSTGRES_PASSWORD` | ✓¹ | Password for the bundled `postgres` service. Host / user / db / port have compose-aware defaults. |
+| `DATABASE_URL` | ✓¹ | Explicit `postgresql://…` connection string. Use this instead of `POSTGRES_*` to point at an external PG. |
 | `NODE_ENV` | — | `development` / `test` / `production`. |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | — | Both or neither. `/auth/github` returns 503 if missing. Callback URL: `$BASE_URL/auth/github/callback`. |
+| `ADMIN_LOGINS` | — | Comma-separated GitHub logins granted admin access (`/app/admin`). Matched case-insensitively. |
 | `SENTRY_DSN` | — | When set, lazy-loads `@sentry/node` and forwards unhandled errors. |
 | `WEB_BUILD_DIR` | — | Production-only. Path to the SvelteKit `build/` for Hono to serve as static. |
 | `PORT` | — | Defaults: dev `3001`, Docker `3000`. |
+
+¹ Either `DATABASE_URL` or `POSTGRES_PASSWORD` must be set (`DATABASE_URL` wins if both are present).
 
 ## Architecture notes
 
@@ -170,8 +181,12 @@ GitHub proxies every README image through `camo.githubusercontent.com`. The rend
 - Sets aggressive anti-cache headers (`Cache-Control`, `Pragma`, `Expires`, rotating `ETag`) so Camo never serves a stale SVG.
 - Computes the per-day fingerprint described above.
 - Marks a visit unique when no `Visit` row exists for `(card_id, fingerprint)` in the last 12 hours.
-- UPSERTs the per-hour `ImpressionBucket` on every render.
+- UPSERTs the per-hour `ImpressionBucket` on every render, splitting `direct_impressions` and `camo_impressions` on the same row.
 - **Self-traffic** (Referer matches `BASE_URL` host) skips `trackVisit` entirely and reads totals via a read-only path so owner previews don't inflate metrics.
+
+### Live preview
+
+The dashboard's card edit page renders every card type client-side from the in-memory config so edits appear instantly (no save-then-fetch round trip). The signed-in user's real GitHub headline numbers (`publicRepos`, `publicGists`, `followers`, `following`, `joinedAt`) are fetched once via `GET /api/me/github-stats` and used as the preview baseline; time-series data (contribution chart, follower sparkline) still uses deterministic mock data so the canvas doesn't shake on every keystroke.
 
 ### Observability
 
@@ -187,10 +202,13 @@ GitHub proxies every README image through `camo.githubusercontent.com`. The rend
 │   ├── api/         # Hono backend (Bun)
 │   └── web/         # SvelteKit dashboard (Svelte 5 runes, adapter-static)
 ├── packages/
-│   ├── db/          # Drizzle schema, migrations, client factory, seed
-│   └── shared/      # Zod schemas, SVG renderers (10 cards), fingerprint + escape utilities
+│   ├── db/          # Drizzle schema, migrations, postgres-js client, seed
+│   └── shared/      # Zod schemas, SVG renderers (12 cards), fingerprint + escape utilities
 ├── docker/
-│   └── Dockerfile   # Multi-stage, single container, single port
+│   ├── Dockerfile           # Multi-stage app image
+│   └── postgres.Dockerfile  # Custom Postgres image with baked-in user/db
+├── docker-compose.yml       # Production app + postgres stack
+├── docker-compose.dev.yml   # Just the Postgres service for local dev
 ├── scripts/
 │   └── dev.ts       # Parallel dev orchestrator (api + web)
 └── lefthook.yml     # Pre-commit hooks
