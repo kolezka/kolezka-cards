@@ -26,263 +26,58 @@
       kolezka-cards (<a href="https://ghcards.raqz.link">ghcards.raqz.link</a>) is designed to give
       card owners useful visit analytics without tracking individual readers across days.
     </p>
-    <p class="updated">Last updated: 2026-05-18</p>
+    <p class="updated">Last updated: 2026-05-19</p>
   </header>
 
   <Glass tier={2} rounded="lg" padding="lg" as="section" class="prose">
-    <h2>1. Data controller</h2>
+    <h2>1. Who we are</h2>
     <p>
-      <strong>Mariusz Rakus</strong><br />
-      Email: <a href="mailto:mariusz@raqz.pl">mariusz@raqz.pl</a><br />
-      Service:
-      <a href="https://ghcards.raqz.link">https://ghcards.raqz.link</a>
+      <strong>Mariusz Rakus</strong> — <a href="mailto:mariusz@raqz.pl">mariusz@raqz.pl</a>.
     </p>
 
-    <h2>2. What this service does</h2>
-    <p>
-      kolezka-cards generates dynamic SVG cards (visit counters, profile stats, repo stats,
-      streaks, language breakdowns, etc.) that GitHub users embed in their public README files.
-      Cards are accessible at public URLs. We collect minimal, privacy-preserving analytics so the
-      card owner can see how often their cards are viewed.
-    </p>
-
-    <h2>3. Data we process</h2>
-
-    <h3>3.1 When a card is rendered (any visitor, no account needed)</h3>
-    <p>For each card render the service stores:</p>
+    <h2>2. What we collect</h2>
     <ul>
       <li>
-        A <strong>per-day fingerprint</strong> computed as
-        <code
-          >sha256(User-Agent | Accept-Language | Accept-Encoding | Sec-CH-UA* hints | country
-          | ip_prefix | daily_salt)</code
-        >
-        where
-        <code>daily_salt = HMAC(APP_SECRET, "salt:" + UTC-date)</code> rotates at 00:00 UTC. The
-        fingerprint is a one-way hash; the daily salt rotation means a return visitor on a
-        following day produces a different fingerprint and cannot be linked to today's visit.
-        For traffic reaching us through GitHub's image proxy (Camo) the IP component is omitted,
-        because the proxy hides the real viewer's IP.
+        <strong>Card views.</strong> Aggregated counts per card with a coarse country code and a
+        daily-rotating, one-way fingerprint so we can show owners how many unique visitors hit
+        their card. No raw IPs, no User-Agent strings, no cross-day tracking.
       </li>
       <li>
-        A two-letter <strong>country code</strong> when Cloudflare provides it via the
-        <code>CF-IPCountry</code> header. We never store the visitor's IP address — only a
-        coarse <strong>network prefix</strong> (first 24 bits for IPv4, first 64 for IPv6)
-        is mixed into the daily-rotating fingerprint hash and immediately discarded. The
-        prefix is not persisted, logged, or sent anywhere.
-      </li>
-      <li>
-        A <strong>referrer host</strong> when the browser sends one. Most GitHub embeds appear as
-        <code>github.com</code> or empty (the Camo proxy strips most headers).
-      </li>
-      <li>
-        A coarse <strong>User-Agent family</strong> bucket: <code>chrome</code> /
-        <code>firefox</code> / <code>edge</code> / <code>safari</code> / <code>curl</code> /
-        <code>bot</code> / <code>camo</code> / <code>other</code>. Full User-Agent strings are
-        never logged; only a 12-character hash is kept for triage.
-      </li>
-      <li>
-        A <strong>traffic source flag</strong>: <code>direct</code> (the visitor's browser hit
-        the URL itself) or <code>camo</code> (the request came through GitHub's image proxy).
-        Detected via the proxy's User-Agent prefix and the <code>Via</code> header. Lets the
-        dashboard show direct-viewer counts separately from README-embed impressions.
-      </li>
-      <li>
-        Per-hour aggregated impression and unique-visit counters, retained as long as the
-        corresponding card exists. Impressions are also split into
-        <code>direct_impressions</code> and <code>camo_impressions</code> on the same row.
+        <strong>Your account.</strong> When you sign in with GitHub we store your GitHub id,
+        login, and avatar URL, plus one session.
       </li>
     </ul>
 
-    <h3>3.2 For signed-in card owners</h3>
-    <p>When you sign in with GitHub OAuth, the service stores:</p>
+    <h2>3. Cookies</h2>
+    <p>
+      One first-party, HTTP-only session cookie after you sign in. Nothing else. The card SVG
+      endpoint sets no cookies.
+    </p>
+
+    <h2>4. Third parties</h2>
     <ul>
-      <li>
-        Your GitHub <code>id</code>, <code>login</code>, and <code>avatar_url</code> — fetched at
-        sign-in and refreshed on subsequent logins. Used to identify you as the owner of your
-        cards.
-      </li>
-      <li>
-        A session row containing a session token (HTTP-only cookie) and a hashed identifier of
-        your browser User-Agent. Sessions expire 30 days after creation.
-      </li>
+      <li><strong>GitHub</strong> — OAuth sign-in and public profile data used to render cards.</li>
+      <li><strong>Cloudflare</strong> — CDN and country code header for analytics.</li>
+      <li><strong>Wakatime</strong> — only if you configure a wakatime card.</li>
     </ul>
 
-    <h3>3.3 Administrator access</h3>
+    <h2>5. Retention</h2>
     <p>
-      A small set of operator accounts — defined by the <code>ADMIN_LOGINS</code> environment
-      variable on the server — has access to an administrative interface
-      (<code>/app/admin</code> and <code>/api/admin/*</code>). Through it an administrator can:
-    </p>
-    <ul>
-      <li>List every user and the count of cards they own.</li>
-      <li>List any user's cards with aggregated impression / unique-visit totals.</li>
-      <li>Delete a card (cascades to its visit rows and impression buckets).</li>
-      <li>Delete a user (cascades to all of their cards, sessions, and analytics data).</li>
-    </ul>
-    <p>
-      Administrators cannot delete themselves and cannot read the contents of session cookies.
-      All actions are logged in the service's structured logs. The current administrator list
-      is intentionally short and limited to people who operate the service.
+      Analytics rows live as long as the card. Sessions expire after 30 days. Deleting a card or
+      account purges everything tied to it.
     </p>
 
-    <h2>4. What we do not collect</h2>
-    <ul>
-      <li>
-        No raw IP addresses. We use a coarse network prefix (IPv4 /24, IPv6 /64) only as a
-        transient input to the daily-rotating fingerprint hash — it is never stored, logged, or
-        forwarded.
-      </li>
-      <li>No User-Agent strings in logs — only a short hash.</li>
-      <li>
-        No cookies, localStorage, or fingerprinting libraries are set on the embedded SVG endpoint
-        (<code>/c/&lt;user&gt;/&lt;slug&gt;.svg</code>).
-      </li>
-      <li>
-        No cross-day identifiers — the daily salt rotation deliberately breaks correlation between
-        a return visitor on different days.
-      </li>
-      <li>
-        No advertising, no tracking pixels, no third-party cookies. Cookieless
-        analytics beacons (Cloudflare Web Analytics and a self-hosted Umami
-        instance) run on the dashboard / marketing pages only —
-        see <a href="#sub-processors">Section 8</a>.
-      </li>
-    </ul>
-
-    <h2>5. Cookies</h2>
+    <h2>6. Your rights &amp; data deletion</h2>
     <p>
-      The web dashboard sets a single first-party HTTP-only session cookie after you sign in with
-      GitHub. No other cookies are set anywhere on the service. The embedded SVG endpoint sets no
-      cookies at all.
+      You can access, correct, export, or delete your data — log out to drop your session, delete
+      a card from the dashboard to remove its analytics, or email
+      <a href="mailto:mariusz@raqz.pl">mariusz@raqz.pl</a> for a full account purge. You also have
+      the right to lodge a complaint with the Polish DPA (UODO).
     </p>
 
-    <h2>6. Legal basis (GDPR)</h2>
+    <h2>7. Changes</h2>
     <p>
-      For analytics on the public SVG endpoint the legal basis is the legitimate interests of the
-      card owner to receive aggregated impression statistics about their public README content
-      (Art. 6(1)(f) GDPR). The processing is designed to be minimally identifying: no persistent
-      identifier, no stored IP (only a transient, hashed network prefix in the daily fingerprint),
-      no cross-day correlation, no profiling.
-    </p>
-    <p>
-      For authenticated card owners the legal basis is the performance of a contract (Art.
-      6(1)(b) GDPR) — providing you the dashboard and card management features you signed up for.
-    </p>
-
-    <h2>7. Retention</h2>
-    <ul>
-      <li>
-        Visit and impression rows persist as long as the card exists. Deleting a card cascades to
-        all of its visit rows and hourly buckets.
-      </li>
-      <li>Sessions expire automatically 30 days after creation.</li>
-      <li>
-        OAuth-state rows (used for the GitHub sign-in CSRF check) expire 10 minutes after creation.
-      </li>
-      <li>
-        Production stores data in a single PostgreSQL instance hosted on the same infrastructure
-        as the application; data does not leave that host. The service does not maintain off-site
-        backups; operational snapshots may be taken before migrations.
-      </li>
-    </ul>
-
-    <h2 id="sub-processors">8. Sub-processors</h2>
-    <p>The service is built on the following infrastructure and external services:</p>
-    <ul>
-      <li>The hosting provider that serves <code>ghcards.raqz.link</code>.</li>
-      <li>
-        <strong>Cloudflare</strong> — CDN/proxy, supplies the country code via the
-        <code>CF-IPCountry</code> header. We also use
-        <strong>Cloudflare Web Analytics</strong> on the dashboard pages
-        (<code>ghcards.raqz.link</code>): a cookieless beacon that records aggregated
-        pageviews, referrers, country, browser, and Core Web Vitals. No cookies, no
-        cross-site tracking, no advertising identifiers — see
-        <a href="https://www.cloudflare.com/web-analytics/" rel="noopener">Cloudflare's
-          documentation</a>. The beacon is not loaded on the embedded SVG endpoint
-        (<code>/c/&lt;user&gt;/&lt;slug&gt;.svg</code>); only the HTML pages.
-      </li>
-      <li>
-        <strong>GitHub</strong> — OAuth provider; the service calls
-        <code>api.github.com</code> to fetch your public profile data when rendering
-        <code>profile-stats</code>, <code>profile-views</code>, <code>repo-stats</code>,
-        <code>streak</code>, <code>profile-summary</code>, <code>languages</code>,
-        <code>top-repos</code>, <code>gist-counter</code>, <code>followers-sparkline</code>,
-        and <code>custom</code> cards (the last only if the layout references
-        <code>github.*</code> data sources).
-      </li>
-      <li>
-        <strong>Wakatime</strong> — only if you configure a <code>wakatime</code> card. Your
-        Wakatime API key (stored in your card's configuration) is sent to <code>wakatime.com</code>
-        to fetch your coding-time statistics. Remove the card to stop these requests.
-      </li>
-      <li>
-        <strong>Umami</strong> (<code>umami.raqz.link</code>) — self-hosted,
-        cookieless product analytics for HTML pages and card views. No cookies,
-        no cross-site tracking, no advertising identifiers, no stored IPs. Runs
-        on the same infrastructure as <code>ghcards.raqz.link</code>.
-      </li>
-    </ul>
-
-    <h2>9. Your rights</h2>
-    <p>Under GDPR you have the right to:</p>
-    <ul>
-      <li>Access the personal data we hold about you.</li>
-      <li>Request correction of inaccurate data.</li>
-      <li>
-        Request erasure (the "right to be forgotten") — see
-        <a href="#data-deletion">Section 10</a> for the data-deletion workflow.
-      </li>
-      <li>Receive your data in a machine-readable format (data portability).</li>
-      <li>Object to or restrict processing.</li>
-      <li>
-        Lodge a complaint with the Polish Data Protection Authority (Prezes Urzędu Ochrony Danych
-        Osobowych, UODO).
-      </li>
-    </ul>
-    <p>
-      To exercise any of these rights, email
-      <a href="mailto:mariusz@raqz.pl">mariusz@raqz.pl</a>. We aim to respond within 30 days.
-    </p>
-
-    <h2 id="data-deletion">10. Data deletion</h2>
-    <ul>
-      <li>Logging out drops your active session row immediately.</li>
-      <li>
-        Deleting a card via the dashboard cascades to all visit rows and hourly impression
-        buckets associated with that card.
-      </li>
-      <li>
-        A full account purge — your user row, all your cards, all your sessions, all
-        analytics — is available on request to
-        <a href="mailto:mariusz@raqz.pl">mariusz@raqz.pl</a>.
-      </li>
-    </ul>
-
-    <h2>11. International transfers</h2>
-    <p>
-      Personal data is processed on infrastructure located within the European Economic Area
-      where possible. Calls to GitHub and Wakatime may be served from data centres in the United
-      States; both are subject to their own privacy policies and (where applicable) the EU-US
-      Data Privacy Framework.
-    </p>
-
-    <h2>12. Children</h2>
-    <p>
-      kolezka-cards is not directed at children under 16. If you believe a child has provided
-      personal data, please contact
-      <a href="mailto:mariusz@raqz.pl">mariusz@raqz.pl</a> and we will delete it.
-    </p>
-
-    <h2>13. Changes to this policy</h2>
-    <p>
-      Material changes will be announced via a banner on the dashboard for at least 30 days
-      before taking effect.
-    </p>
-
-    <p class="muted-foot">
-      For the technical methodology behind the unique-visit count, see the
-      <a href="/methodology">methodology page</a>.
+      Material changes will be announced on the dashboard before taking effect.
     </p>
   </Glass>
 </article>
@@ -329,12 +124,6 @@
     letter-spacing: -0.01em;
     color: var(--text-1);
   }
-  :global(.prose) h3 {
-    margin: 18px 0 6px;
-    font-size: 14.5px;
-    color: var(--text-1);
-    font-weight: 600;
-  }
   :global(.prose) h2:first-of-type {
     margin-top: 4px;
   }
@@ -350,25 +139,11 @@
     flex-direction: column;
     gap: 8px;
   }
-  :global(.prose) code {
-    background: var(--glass-2);
-    color: var(--text-1);
-    padding: 2px 7px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--ring-soft);
-    font-family: var(--font-mono);
-    font-size: 12.5px;
-  }
   :global(.prose) a {
     color: var(--accent);
     text-decoration: none;
   }
   :global(.prose) a:hover {
     filter: brightness(1.1);
-  }
-  .muted-foot {
-    margin-top: 24px;
-    font-size: 13px;
-    color: var(--text-3);
   }
 </style>
