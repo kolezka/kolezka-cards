@@ -33,7 +33,7 @@ import {
   PREVIEW_LOGIN,
 } from './preview-mock-data';
 
-export type PreviewDims = { width: number; height: number };
+export type PreviewDims = { width?: number; height?: number };
 
 /**
  * Render any card type client-side from the in-memory cfg with mock data.

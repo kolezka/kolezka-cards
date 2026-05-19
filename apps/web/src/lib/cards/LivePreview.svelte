@@ -16,9 +16,13 @@
   // typing (renderPreview returns '' on a throw).
   let svg = $state('');
   $effect(() => {
+    // Pass dims only when the user explicitly set them. Otherwise each
+    // renderer uses its own natural default (profile-summary is 1080×320
+    // with a two-column layout; forcing it to 480 squashes the stats
+    // column under the chart polygon).
     const dims = {
-      width: cfg.size?.width ?? 480,
-      height: cfg.size?.height ?? 300,
+      width: cfg.size?.width,
+      height: cfg.size?.height,
     };
     const next = renderPreview(cardType, cfg, dims);
     if (next) svg = next;
