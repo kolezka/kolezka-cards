@@ -70,12 +70,21 @@
     background-position: 0 0, 0 8px, 8px -8px, -8px 0;
     border-radius: var(--radius-md);
     border: 1px solid var(--ring-soft);
+    /* Center small cards (profile-views is 220×40, visit-counter 480×160)
+       inside the wide preview pane instead of left-aligning them. */
+    text-align: center;
   }
+  /* Render at the SVG's native size — never stretch. Each card type has a
+     tuned default (profile-views 220×40, profile-summary 1080×320, etc.);
+     forcing `width: 100%` would upscale them 2–5× past their intended
+     resolution, blurring text and breaking 1.5px stroke widths. The
+     max-width clamp only kicks in on narrow viewports where the natural
+     size would overflow. */
   .preview-canvas img,
   .preview-canvas :global(svg) {
-    width: 100%;
+    max-width: 100%;
     height: auto;
-    display: block;
+    display: inline-block;
     border-radius: var(--radius-sm);
   }
   .preview-url {
