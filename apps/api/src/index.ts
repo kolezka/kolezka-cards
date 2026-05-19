@@ -17,6 +17,7 @@ import { createDevAnalyticsRoute } from './routes/dev-analytics';
 import { healthz } from './routes/healthz';
 import { createMeRoute } from './routes/me';
 import { metrics as metricsRoute } from './routes/metrics';
+import { createGitHubClient } from './services/github-client';
 import { bumpCounter } from './services/metrics';
 
 const databaseUrl = resolveDatabaseUrl(env);
@@ -66,11 +67,15 @@ app.use('/api/*', async (c, next) => {
 
 app.use('/api/*', csrfGuard(env));
 
+// Shared between render and me routes so the same in-memory cache covers
+// both card SVG renders and the preview stats endpoint.
+const github = createGitHubClient();
+
 app.route('/', healthz);
 app.route('/', metricsRoute);
-app.route('/', createRenderCardRoute(db));
+app.route('/', createRenderCardRoute(db, github));
 app.route('/', createAuthRoute(db, env));
-app.route('/', createMeRoute(db, env));
+app.route('/', createMeRoute(db, env, github));
 app.route('/', createCardsRoute(db, env));
 app.route('/', createAnalyticsRoute(db, env));
 app.route('/', createAdminRoute(db, env));

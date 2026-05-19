@@ -35,23 +35,39 @@ import {
 
 export type PreviewDims = { width?: number; height?: number };
 
+export interface PreviewStats {
+  login?: string;
+  publicRepos?: number;
+  publicGists?: number;
+  followers?: number;
+  following?: number;
+  joinedAt?: string | null;
+}
+
 /**
  * Render any card type client-side from the in-memory cfg with mock data.
  * Returns an empty string for unknown types or when the renderer throws on
  * an in-progress invalid cfg (caller keeps the last good preview in that
  * case).
  *
- * `login`, when provided, overrides the placeholder `octocat` so the preview
- * shows the card owner's handle (the real numeric data still uses mocks —
- * those would need a network round-trip to the GitHub API).
+ * `stats`, when provided, overrides the placeholder mock values with the
+ * signed-in user's real GitHub profile so the preview matches reality for
+ * the headline numbers. The time-series data (contribution chart, followers
+ * sparkline) and top-repos / wakatime / languages breakdown still use mocks
+ * — those would need additional API round-trips on every keystroke.
  */
 export function renderPreview(
   cardType: string,
   cfg: unknown,
   dims: PreviewDims,
-  login?: string,
+  stats?: PreviewStats,
 ): string {
-  const user = login && login.length > 0 ? login : PREVIEW_LOGIN;
+  const user = stats?.login && stats.login.length > 0 ? stats.login : PREVIEW_LOGIN;
+  const publicRepos = stats?.publicRepos ?? 32;
+  const publicGists = stats?.publicGists ?? 12;
+  const followers = stats?.followers ?? 421;
+  const following = stats?.following ?? 87;
+  const joinedAt = stats?.joinedAt ?? '2014-04-01';
   try {
     switch (cardType) {
       case 'custom':
@@ -69,9 +85,9 @@ export function renderPreview(
           cfg as ProfileStatsConfig,
           {
             login: user,
-            publicRepos: 32,
-            followers: 421,
-            following: 87,
+            publicRepos,
+            followers,
+            following,
             topLanguages: MOCK_LANGUAGES.slice(0, 4),
           },
           dims,
@@ -111,9 +127,9 @@ export function renderPreview(
           cfg as ProfileSummaryConfig,
           {
             login: user,
-            publicRepos: 32,
+            publicRepos,
             totalThisYear: 1842,
-            joinedAt: '2014-04-01',
+            joinedAt,
             contributions: MOCK_CONTRIBUTIONS,
           },
           dims,
@@ -131,7 +147,7 @@ export function renderPreview(
           cfg as FollowersSparklineConfig,
           {
             login: user,
-            currentFollowers: 421,
+            currentFollowers: followers,
             history: MOCK_FOLLOWERS_HISTORY,
           },
           dims,
@@ -156,7 +172,7 @@ export function renderPreview(
           cfg as GistCounterConfig,
           {
             login: user,
-            publicGists: 12,
+            publicGists,
             latestGist: {
               description: 'A quick snippet worth keeping.',
               updatedAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),

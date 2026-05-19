@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/state';
-  import { api, type AnalyticsResult, type CardSummary } from '$lib/api';
+  import { api, type AnalyticsResult, type CardSummary, type GitHubStats } from '$lib/api';
   import CardAnalytics from '$lib/cards/CardAnalytics.svelte';
   import LivePreview from '$lib/cards/LivePreview.svelte';
   import { THEME_NAMES } from '$lib/theme';
@@ -16,6 +16,7 @@
   let saving = $state(false);
   let copied = $state(false);
   let cacheBuster = $state(Date.now());
+  let githubStats = $state<GitHubStats | null>(null);
 
   type LooseConfig = {
     type: string;
@@ -79,6 +80,11 @@
     } catch (e) {
       err = (e as Error).message;
     }
+    // Fire-and-forget: real GitHub stats power the live preview's headline
+    // numbers. Failure is non-fatal — the preview falls back to mock values.
+    api.githubStats().then((s) => {
+      if (s) githubStats = s;
+    }).catch(() => {});
   }
 
   async function loadAnalytics() {
@@ -167,7 +173,7 @@
         cardUrl={card.url}
         cfg={cfg as never}
         fallbackImgUrl={svgUrl}
-        login={card.ownerLogin}
+        stats={githubStats ?? { login: card.ownerLogin }}
       />
     {/if}
 

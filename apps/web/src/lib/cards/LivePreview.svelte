@@ -1,15 +1,15 @@
 <script lang="ts">
   import { Glass } from '$lib/ui';
-  import { renderPreview } from './preview-renderers';
+  import { type PreviewStats, renderPreview } from './preview-renderers';
 
   type Props = {
     cardType: string;
     cardUrl: string;
     cfg: { size?: { width?: number; height?: number } } & Record<string, unknown>;
     fallbackImgUrl: string;
-    login?: string;
+    stats?: PreviewStats;
   };
-  let { cardType, cardUrl, cfg, fallbackImgUrl, login }: Props = $props();
+  let { cardType, cardUrl, cfg, fallbackImgUrl, stats }: Props = $props();
 
   // Live preview — render every card type client-side from the in-memory
   // cfg so edits appear immediately, without a save round-trip. Last-good
@@ -25,7 +25,7 @@
       width: cfg.size?.width,
       height: cfg.size?.height,
     };
-    const next = renderPreview(cardType, cfg, dims, login);
+    const next = renderPreview(cardType, cfg, dims, stats);
     if (next) svg = next;
   });
 </script>

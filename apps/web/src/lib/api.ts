@@ -6,6 +6,15 @@ export interface Me {
   isAdmin: boolean;
 }
 
+export interface GitHubStats {
+  login: string;
+  publicRepos: number;
+  publicGists: number;
+  followers: number;
+  following: number;
+  joinedAt: string | null;
+}
+
 export interface AdminUser {
   id: string;
   githubId: number;
@@ -99,6 +108,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T | nul
 
 export const api = {
   me: () => request<Me>('/api/me'),
+  githubStats: () => request<GitHubStats>('/api/me/github-stats'),
   listCards: () => request<CardSummary[]>('/api/cards'),
   getCard: (id: string) => request<CardSummary>(`/api/cards/${id}`),
   createCard: (slug: string, config: Record<string, unknown>) =>
