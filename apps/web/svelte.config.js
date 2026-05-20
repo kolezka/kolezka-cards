@@ -15,13 +15,8 @@ export default {
       mode: 'hash',
       directives: {
         'default-src': ['self'],
-        'script-src': [
-          'self',
-          'strict-dynamic',
-          'https://static.cloudflareinsights.com',
-          'https://umami.raqz.link',
-        ],
-        'style-src': ['self'],
+        'script-src': ['self', 'https://static.cloudflareinsights.com', 'https://umami.raqz.link'],
+        'style-src': ['self', 'unsafe-inline'],
         'img-src': ['self', 'data:', 'https:'],
         'connect-src': [
           'self',
@@ -29,7 +24,6 @@ export default {
           'https://*.cloudflareinsights.com',
           'https://umami.raqz.link',
         ],
-        // 'frame-ancestors': ['none'],
         'base-uri': ['self'],
         'form-action': ['self'],
       },
