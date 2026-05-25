@@ -10,10 +10,11 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "bun test",
-    "db:generate": "bun --filter @kc/db db:generate",
-    "db:migrate": "bun --filter @kc/db db:migrate",
-    "db:studio": "bun --filter @kc/db db:studio",
-    "db:seed": "bun --filter @kc/db db:seed"
+    "db:generate": "bun --env-file=.env --filter @kc/db db:generate",
+    "db:migrate": "bun --env-file=.env --filter @kc/db db:migrate",
+    "db:check": "bun --env-file=.env --filter @kc/db db:check",
+    "db:studio": "bun --env-file=.env --filter @kc/db db:studio",
+    "db:seed": "bun --env-file=.env --filter @kc/db db:seed"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
