@@ -37,7 +37,7 @@ const api = run(
 const web = run(
   'web',
   'bun',
-  ['x', 'vite', 'dev', '--port', '5173', '--strictPort'],
+  ['x', 'vite', 'dev', '--host', '0.0.0.0', '--port', '5173', '--strictPort'],
   resolve(root, 'apps/web'),
 );
 
