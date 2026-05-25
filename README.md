@@ -119,8 +119,13 @@ docker compose -f docker-compose.dev.yml up -d
 
 # 3. Env
 cp .env.example .env
-# Fill APP_SECRET (`openssl rand -hex 32`), set BASE_URL=http://localhost:5173,
-# and POSTGRES_PASSWORD (matching the docker-compose.dev.yml value).
+# Fill APP_SECRET (`openssl rand -hex 32`), set BASE_URL=http://localhost:5173.
+# For the host-dev path (this Quickstart), also set DATABASE_URL to point at the
+# dev compose's Postgres (default user/password/db baked into docker-compose.dev.yml):
+#   DATABASE_URL=postgresql://kc:kc_dev@localhost:5434/kc_dev
+# Without DATABASE_URL the connection defaults target the prod compose's internal
+# network (`postgres:5432/kc_cards`) and migrations will fail with EREFUSED.
+# POSTGRES_PASSWORD is only needed when running the production compose stack.
 
 # 4. Migrate + seed sample cards
 bun --filter @kc/db db:migrate

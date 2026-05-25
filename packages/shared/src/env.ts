@@ -97,6 +97,42 @@ export function oauthConfigured(env: Env): boolean {
   return Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET);
 }
 
+export interface EnvWarning {
+  field: string;
+  message: string;
+}
+
+/**
+ * Surface env values that are valid by the schema but suspicious at runtime —
+ * e.g. a dev BASE_URL leaking into a production deploy. Callers should log
+ * these at startup; they do NOT throw, because there are legitimate
+ * non-https or loopback BASE_URL uses (local prod-like testing).
+ */
+export function getEnvWarnings(env: Env): EnvWarning[] {
+  const warnings: EnvWarning[] = [];
+  if (env.NODE_ENV === 'production') {
+    const url = new URL(env.BASE_URL);
+    if (url.protocol !== 'https:') {
+      warnings.push({
+        field: 'BASE_URL',
+        message: `BASE_URL uses ${url.protocol} in production; OAuth callbacks and self-traffic exclusion expect https. Configured: ${env.BASE_URL}`,
+      });
+    }
+    const isLoopback =
+      url.hostname === 'localhost' ||
+      url.hostname === '127.0.0.1' ||
+      url.hostname === '::1' ||
+      url.hostname === '[::1]';
+    if (isLoopback) {
+      warnings.push({
+        field: 'BASE_URL',
+        message: `BASE_URL points at loopback (${url.hostname}) in production; this is almost certainly a leaked dev value. Set BASE_URL per-deploy (e.g. in Coolify's env tab), not in the repo .env.`,
+      });
+    }
+  }
+  return warnings;
+}
+
 /**
  * Default connection details for the bundled Postgres service in the same
  * compose stack. Keeping them in code (rather than the compose env block)
