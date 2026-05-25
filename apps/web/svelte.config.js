@@ -24,7 +24,6 @@ export default {
           'https://*.cloudflareinsights.com',
           'https://umami.raqz.link',
         ],
-        'frame-ancestors': ['none'],
         'base-uri': ['self'],
         'form-action': ['self'],
       },
