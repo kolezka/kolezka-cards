@@ -1,5 +1,5 @@
 import { getClient, runStartupMigrations } from '@kc/db';
-import { oauthConfigured, resolveDatabaseUrl } from '@kc/shared/env';
+import { getEnvWarnings, oauthConfigured, resolveDatabaseUrl } from '@kc/shared/env';
 import { Hono } from 'hono';
 import { createRenderCardRoute } from './cards/route';
 import { env } from './env';
@@ -116,6 +116,9 @@ logger.info(
   },
   'boot config resolved',
 );
+for (const w of getEnvWarnings(env)) {
+  logger.warn({ event: 'boot.env_warning', field: w.field }, w.message);
+}
 logger.info({ port, env: env.NODE_ENV }, 'kc-api listening');
 
 export default {
